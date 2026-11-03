@@ -24,7 +24,7 @@ export class CanvasBarMap {
     this.ctx=canvas.getContext('2d',{alpha:false});
     this.center={...center};this.zoom=15;this.minZoom=12;this.maxZoom=17;
     this.onSelect=onSelect;this.onStatus=onStatus;
-    this.tiles=new Map();this.points=[];this.origin={...center};this.selectOrigin=false;
+    this.tiles=new Map();this.points=[];this.route=[];this.highlight=null;this.origin={...center};this.selectOrigin=false;
     this.drag=null;this.activePointers=new Map();this.pinchDist=0;this.moved=false;
     this.width=0;this.height=0;this.pending=false;this.destroyed=false;
     canvas.style.touchAction='none';
@@ -58,8 +58,10 @@ export class CanvasBarMap {
   }
   setZoom(z){this.zoom=clamp(Math.round(z),this.minZoom,this.maxZoom);this.requestDraw()}
   zoomHome(){this.zoom=15;this.setCenter(this.origin)}
-  setOrigin(p){if(Number.isFinite(p?.lat)&&Number.isFinite(p?.lng)){this.origin={...p};this.requestDraw()}}
+  setOrigin(p){this.origin=Number.isFinite(p?.lat)&&Number.isFinite(p?.lng)?{...p}:null;this.requestDraw()}
   setPoints(points){this.points=points.filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));this.requestDraw()}
+  setRoute(points){this.route=points.filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));this.requestDraw()}
+  setHighlight(id){this.highlight=id;this.requestDraw()}
   setPickMode(value){this.selectOrigin=!!value;this.canvas.style.cursor=value?'crosshair':'grab'}
   requestDraw(){if(this.pending||this.destroyed)return;this.pending=true;requestAnimationFrame(()=>{this.pending=false;this.draw()})}
   pointerDown(e){
@@ -93,7 +95,7 @@ export class CanvasBarMap {
     const point=unproject(origin.x+x-this.width/2,origin.y+y-this.height/2,this.zoom);
     if(this.selectOrigin){this.setPickMode(false);this.onSelect?.({type:'origin',...point});return}
     let closest=null,closestDist=22;
-    for(const p of this.points){const q=this.screenPosition(p),d=Math.hypot(q.x-x,q.y-y);if(d<closestDist){closest=p;closestDist=d}}
+    for(const p of [...this.points,...this.route]){const q=this.screenPosition(p),d=Math.hypot(q.x-x,q.y-y);if(d<closestDist){closest=p;closestDist=d}}
     if(closest)this.onSelect?.({type:'venue',venue:closest});
   }
   screenPosition(pos){const c=project(this.center.lat,this.center.lng,this.zoom),q=project(pos.lat,pos.lng,this.zoom);return {x:q.x-c.x+this.width/2,y:q.y-c.y+this.height/2}}
@@ -140,16 +142,37 @@ export class CanvasBarMap {
     ctx.restore();
   }
   drawMarkers(ctx){
-    for(const p of this.points){const {x,y}=this.screenPosition(p);if(x< -30||y< -30||x>this.width+30||y>this.height+30)continue;
-      ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);ctx.fillStyle='#253a35';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle='#ffffff';ctx.stroke();
-      ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fillStyle='#b8ecca';ctx.fill();
+    // Route is a schematic straight-line connector, not a walking path.
+    // Do not connect across missing-coordinate stops.
+    for(let i=1;i<this.route.length;i++){
+      const a=this.route[i-1], b=this.route[i];
+      if(a.routeIndex+1!==b.routeIndex)continue;
+      const p=this.screenPosition(a),q=this.screenPosition(b);
+      ctx.save();ctx.strokeStyle='#276b57';ctx.lineWidth=4;ctx.setLineDash([6,6]);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();ctx.restore();
+    }
+    for(const p of this.points){
+      const {x,y}=this.screenPosition(p);
+      if(x < -30||y < -30||x>this.width+30||y>this.height+30)continue;
+      const selected=p.id===this.highlight;
+      ctx.beginPath();ctx.arc(x,y,selected?13:8,0,Math.PI*2);
+      ctx.fillStyle=selected?'#f5bba7':'#183f33';ctx.fill();
+      ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.stroke();
+      if(!selected){ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle='#bce9be';ctx.fill()}
+    }
+    for(const p of this.route){
+      const {x,y}=this.screenPosition(p);
+      if(x < -30||y < -30||x>this.width+30||y>this.height+30)continue;
+      ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.fillStyle='#f7bea8';ctx.fill();
+      ctx.lineWidth=2;ctx.strokeStyle='#ffffff';ctx.stroke();
+      ctx.fillStyle='#39271f';ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(p.routeIndex),x,y+.5);
     }
     if(this.origin&&Number.isFinite(this.origin.lat)){
       const {x,y}=this.screenPosition(this.origin);
       if(x>=-30&&y>=-30&&x<this.width+30&&y<this.height+30){
-        ctx.beginPath();ctx.arc(x,y,15,0,Math.PI*2);ctx.fillStyle='rgba(24,58,49,.19)';ctx.fill();
-        ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fillStyle='#184e3b';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle='white';ctx.stroke();
-        ctx.font='14px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='white';ctx.fillText('⌂',x,y+0.5);
+        ctx.beginPath();ctx.arc(x,y,16,0,Math.PI*2);ctx.fillStyle='rgba(24,58,49,.20)';ctx.fill();
+        ctx.beginPath();ctx.arc(x,y,11,0,Math.PI*2);ctx.fillStyle='#184e3b';ctx.fill();
+        ctx.lineWidth=3;ctx.strokeStyle='white';ctx.stroke();
+        ctx.font='14px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='white';ctx.fillText('⌂',x,y+.5);
       }
     }
   }

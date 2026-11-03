@@ -1,98 +1,162 @@
-import {INN,CURATED} from './data.js';
-import {CanvasBarMap} from './map.js';
+import {INN,CURATED} from './data.js?v=6.0.0';
+import {CanvasBarMap} from './map.js?v=6.0.0';
 
-const APP_VERSION='JS v5.0';
-const STORAGE='tainan-bar-hop-js-v5';
+const VERSION='JS v6.0';
+const STORE='tainan-bar-hop-js-v6';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const normalize=s=>String(s||'').normalize('NFKC').toLocaleLowerCase().replace(/[\s\-_・‧（）()]/g,'');
-const venueKey=v=>normalize(v.name);
-const CATEGORY={cocktail:'🍸 調酒',beer:'🍺 精釀啤酒',bistro:'🍽️ 餐酒館'};
-function loadStorage(){try{return JSON.parse(localStorage.getItem(STORAGE))||{}}catch{return {}}}
-const fromStorage=loadStorage();
-let legacy={};try{legacy=JSON.parse(localStorage.getItem('tainan-bar-hop-v1'))||{}}catch{}
-const state={origin:{...INN,type:'inn'},venue:[...CURATED],osm:[],route:Array.isArray(fromStorage.route)?fromStorage.route:(Array.isArray(legacy.route)?legacy.route:[]),favorite:new Set(fromStorage.favorite||legacy.favorites||[]),visited:new Set(fromStorage.visited||legacy.visited||[]),tab:'explore',filter:'all',search:'',show:12,selected:null,busy:false,pickMode:false};
-function save(){try{localStorage.setItem(STORAGE,JSON.stringify({route:state.route,favorite:[...state.favorite],visited:[...state.visited]}))}catch{}}
-function navTarget(v){return Number.isFinite(v.lat)&&Number.isFinite(v.lng)?`${v.lat},${v.lng}`:v.address||v.name+' 臺南市'}
-function startPoint(){const o=state.origin;if(o.type==='gps')return '';return Number.isFinite(o.lat)&&Number.isFinite(o.lng)?`${o.lat},${o.lng}`:o.address||o.name||''}
-function mapUrl(venues){if(!venues.length)return '#';const qs=new URLSearchParams({api:'1',destination:navTarget(venues[venues.length-1]),travelmode:'walking'}),o=startPoint();if(o)qs.set('origin',o);if(venues.length>1)qs.set('waypoints',venues.slice(0,-1).map(navTarget).join('|'));return 'https://www.google.com/maps/dir/?'+qs.toString()}
-function lookupUrl(v){return 'https://www.google.com/maps/search/?'+new URLSearchParams({api:'1',query:v.name+' '+(v.address||'臺南市')}).toString()}
-let timer;
-function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>el.classList.remove('show'),3300)}
-function isRouted(v){return state.route.some(a=>venueKey(a)===venueKey(v))}
-function addRoute(v){if(isRouted(v)){toast('已經在續攤清單囉');return}state.route.push({id:v.id,name:v.name,address:v.address,category:v.category,lat:v.lat,lng:v.lng,source:v.source});save();renderRoute();renderBrowse();renderExplore();toast('已加入續攤：'+v.name)}
-function moveRoute(i,delta){const j=i+delta;if(j<0||j>=state.route.length)return;const a=state.route;[a[i],a[j]]=[a[j],a[i]];save();renderRoute()}
-function setOrigin(p,{center=true}={}){state.origin={...p};$('originTitle').textContent=p.name||'自訂起點';$('originSub').textContent=p.address||`${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`;$('mapOrigin').textContent=p.name||'自訂起點';if(Number.isFinite(p.lat)&&Number.isFinite(p.lng)){map.setOrigin(p);if(center){const nearTainan=p.lat>22.7&&p.lat<23.5&&p.lng>119.8&&p.lng<120.9;if(nearTainan)map.setCenter(p);else toast('導航起點已設定，地圖仍維持臺南範圍')}}renderExplore()}
-function card(v){return `<article class="venue"><div class="venue-head"><h3>${esc(v.name)}</h3><span class="tag">${v.source==='osm'?'OSM':'精選'}</span></div><p>📍 ${esc(v.address||'臺南市・請以地圖確認位置')}</p><p>${esc(v.desc||CATEGORY[v.category]||'酒吧')}</p><div class="row"><a class="btn primary tiny" href="${esc(mapUrl([v]))}" target="_blank" rel="noopener noreferrer">🚶 導航</a><button class="btn tiny ${isRouted(v)?'soft':''}" data-action="add" data-id="${esc(v.id)}">${isRouted(v)?'✓ 已加入':'＋ 續攤'}</button><a class="btn ghost tiny" href="${esc(lookupUrl(v))}" target="_blank" rel="noopener noreferrer">查店家</a><button class="btn ghost tiny" data-action="favorite" data-id="${esc(v.id)}">${state.favorite.has(venueKey(v))?'♥':'♡'}</button>${Number.isFinite(v.lat)?`<button class="btn ghost tiny" data-action="focus" data-id="${esc(v.id)}">地圖定位</button>`:''}</div></article>`}
-function renderExplore(){
-  $('quickList').innerHTML=state.venue.slice(0,4).map(card).join('');
-  $('curatedCount').textContent=CURATED.length;
-  $('osmCount').textContent=state.osm.length||'按需';
+const normal=s=>String(s??'').normalize('NFKC').toLowerCase().replace(/[\s\-_・‧（）()·.,，。:：]/g,'');
+const idOf=v=>normal(v.name);
+const label={cocktail:'🍸 調酒',beer:'🍺 啤酒',bistro:'🍽️ 餐酒'};
+const hasCoords=v=>Number.isFinite(v?.lat)&&Number.isFinite(v?.lng);
+const searchString=v=>normal([v.name,v.address,v.desc,v.category,label[v.category],v.source==='osm'?'公開酒吧':'精選酒吧'].join(' '));
+const kmBetween=(a,b)=>{if(!hasCoords(a)||!hasCoords(b))return null;const r=Math.PI/180,dLat=(b.lat-a.lat)*r,dLng=(b.lng-a.lng)*r,x=Math.sin(dLat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2;return 12742*Math.asin(Math.min(1,Math.sqrt(x)))};
+const kmText=d=>d===null?'距離未確認':d<1?`${Math.round(d*1000)} m`:`${d.toFixed(1)} km`;
+const coordsStr=p=>`${p.lat},${p.lng}`;
+const copyVenue=v=>({id:v.id,name:v.name,address:v.address,category:v.category,lat:v.lat,lng:v.lng,source:v.source});
+const getLocal=(k,def)=>{try{return JSON.parse(localStorage.getItem(k))??def}catch{return def}};
+const persisted=getLocal(STORE,{});
+const old=getLocal('tainan-bar-hop-js-v5',{});
+const state={
+  origin:{...INN,type:'inn'},
+  venues:CURATED.map(v=>({...v})),
+  osm:[], route:(persisted.route||old.route||[]).map(x=>({...x})),
+  fav:new Set(persisted.fav||old.favorite||[]),
+  visited:new Set(persisted.visited||old.visited||[]),
+  view:'discover', filter:'all', search:'', radius:'2', show:12,
+  sorting:'recommended', nearby:false, selected:null,
+  sheet:'peek', loading:false, loaded:false, loadMessage:'',
+  pickMode:false, random:null
+};
+function save(){try{localStorage.setItem(STORE,JSON.stringify({route:state.route,fav:[...state.fav],visited:[...state.visited]}))}catch{}}
+function googlePlace(v){return 'https://www.google.com/maps/search/?'+new URLSearchParams({api:'1',query:`${v.name} ${v.address||'臺南市'}`})}
+function googleSearch(query){return 'https://www.google.com/maps/search/?'+new URLSearchParams({api:'1',query:query||'臺南 酒吧'})}
+function dest(v){return hasCoords(v)?coordsStr(v):`${v.name} ${v.address||'臺南市'}`}
+function navUrl(arr){if(!arr.length)return '#';const params=new URLSearchParams({api:'1',destination:dest(arr[arr.length-1]),travelmode:'walking'});if(state.origin.type!=='gps')params.set('origin',hasCoords(state.origin)?coordsStr(state.origin):state.origin.address);if(arr.length>1)params.set('waypoints',arr.slice(0,-1).map(dest).join('|'));return 'https://www.google.com/maps/dir/?'+params}
+function toast(txt){const el=$('toast');el.textContent=txt;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3200)}
+function routeHas(v){return state.route.some(p=>idOf(p)===idOf(v))}
+function distance(v){return kmBetween(state.origin,v)}
+function updateDistanceLabel(){const origin=state.origin;$('startTitle').textContent=origin.name;$('startAddr').textContent=origin.address||'地圖所選座標';$('mapOrigin').textContent=origin.name;$('startShortcut').textContent=origin.type==='inn'?'民宿起點':origin.name;}
+function setStart(p){state.origin={...p};updateDistanceLabel();map.setOrigin(p);if(hasCoords(p)){if(p.lat>22.75&&p.lat<23.3&&p.lng>120.0&&p.lng<120.55)map.setCenter(p)}renderResults()}
+function updateMap(){const pts=state.venues.filter(hasCoords);map.setPoints(pts);map.setRoute(state.route.filter(hasCoords).map((v,i)=>({...v,routeIndex:state.route.indexOf(v)+1||i+1})));$('pinCount').textContent=`${pts.length} 個已定位點位`}
+function updateRouteMap(){map.setRoute(state.route.filter(hasCoords).map(v=>({...v,routeIndex:state.route.indexOf(v)+1})));}
+function add(v){if(routeHas(v)){toast('這間已經在續攤清單了');return}state.route.push(copyVenue(v));save();renderRoute();renderResults();renderRandom();updateRouteMap();toast('已加入續攤：'+v.name)}
+function remove(i){state.route.splice(i,1);save();renderRoute();renderResults();updateRouteMap()}
+function move(i,d){let j=i+d;if(j<0||j>=state.route.length)return;[state.route[i],state.route[j]]=[state.route[j],state.route[i]];save();renderRoute();updateRouteMap()}
+function routeOptimize(){const items=state.route.slice(), ordered=[];let here=state.origin;while(items.length){let index=-1,best=Infinity;items.forEach((p,i)=>{const d=distanceFrom(here,p);if(d!=null&&d<best){best=d;index=i}});if(index===-1)index=0;const [v]=items.splice(index,1);ordered.push(v);if(hasCoords(v))here=v}state.route=ordered;save();renderRoute();updateRouteMap();toast('已依直線距離安排；實際步行請以導航為準')}
+function distanceFrom(a,b){return kmBetween(a,b)}
+function toggleFavorite(v){const key=idOf(v);state.fav.has(key)?state.fav.delete(key):state.fav.add(key);save();renderResults();renderRandom();renderRoute()}
+function findVenue(id){return state.venues.find(x=>x.id===id)||state.route.find(x=>x.id===id)}
+function focus(v){if(!hasCoords(v)){toast('這間店尚未核對座標，可點「Google 地圖查店家」');return}map.setCenter(v);map.setZoom(16);map.setHighlight(v.id);state.selected=v;$('mapVenue').hidden=false;$('mapVenue').innerHTML=`<strong>${esc(v.name)}</strong><p>${esc(v.address||'依 OSM 地圖點位')}</p><div class="actions"><button class="btn btn-brand" id="pinAdd">＋ 加入續攤</button><a class="btn" target="_blank" rel="noopener noreferrer" href="${esc(navUrl([v]))}">步行導航 ↗</a><button class="btn btn-ghost" id="pinClose">×</button></div>`;$('pinAdd').onclick=()=>add(v);$('pinClose').onclick=()=>{$('mapVenue').hidden=true;map.setHighlight(null)}}
+function matches(){const q=normal(state.search);let all=state.venues.filter(v=>(state.filter==='all'||(state.filter==='favorite'?state.fav.has(idOf(v)):state.filter===v.category))&&(!q||searchString(v).includes(q)));
+  if(state.nearby){const radius=Number(state.radius)||2;all=all.filter(v=>{const d=distance(v);return d!==null&&d<=radius});}
+  if(state.sorting==='nearest'||state.nearby){all.sort((a,b)=>(distance(a)??Infinity)-(distance(b)??Infinity)||a.name.localeCompare(b.name,'zh-Hant'))}
+  else if(state.sorting==='alpha')all.sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant'));
+  else all.sort((a,b)=>(a.source==='curated'?0:1)-(b.source==='curated'?0:1));
+  return all;
+}
+function venueCard(v){const d=distance(v),isPinned=hasCoords(v),fav=state.fav.has(idOf(v)),added=routeHas(v);
+  return `<article class="venue" data-venue="${esc(v.id)}">
+   <div class="venue-main"><div class="ven-head"><h3>${esc(v.name)}</h3><span class="source">${v.source==='curated'?'精選':'OSM'}</span></div>
+     <p class="ven-address">📍 ${esc(v.address||'臺南市・位置依 OSM 標記')}</p>
+     <div class="tags"><span>${esc(label[v.category]||'🍸 酒吧')}</span><span>${isPinned?`約 ${kmText(d)}・直線距離`:'尚未確認座標'}</span></div>
+   </div>
+   <div class="venue-actions"><button class="btn btn-brand" data-action="add" data-id="${esc(v.id)}">${added?'✓ 已加入':'＋ 續攤'}</button>
+   ${isPinned?`<button class="btn" data-action="focus" data-id="${esc(v.id)}">地圖定位</button>`:''}
+   <a class="btn" href="${esc(googlePlace(v))}" target="_blank" rel="noopener noreferrer">Google 查店家 ↗</a>
+   <button class="btn btn-icon ${fav?'favorited':''}" aria-label="${fav?'取消收藏':'收藏'}" data-action="fav" data-id="${esc(v.id)}">${fav?'♥':'♡'}</button></div></article>`
+}
+function renderResults(){const found=matches();$('resultCount').textContent=`${found.length} 間`;const shown=found.slice(0,state.show);
+  $('results').innerHTML=shown.map(venueCard).join('')||`<div class="empty"><strong>${state.nearby?'附近目前沒有已確認座標的店家':'沒有符合搜尋的酒吧'}</strong><p>${state.nearby?'可擴大範圍或載入更多公開點位；尚未定位的精選店家不會被錯當成附近店家。':'試試換個關鍵字，或搜尋 Google Maps 的其他酒吧。'}</p></div>`;
+  $('loadMore').hidden=found.length<=state.show;
+  $('searchClear').hidden=!state.search;
+  $('searchGoogle').href=googleSearch(state.search?state.search+' 臺南':'臺南市 酒吧');
+  $('searchGoogle').textContent=state.search?'在 Google 地圖搜尋「'+state.search.slice(0,22)+'」 ↗':'Google 地圖找更多 ↗';
+  $('nearState').textContent=state.nearby?`已確認 ${found.length} 間在 ${state.radius} km 內；僅包含有座標的點位`:'清單會隨關鍵字與分類即時篩選';
+  $('nearBtn').classList.toggle('active',state.nearby);
+  $('searchInput').value=state.search;
+  $('filterAll').classList.toggle('active',state.filter==='all');
+  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',b.dataset.filter===state.filter));
+  $('morePublic').textContent=state.loading?'正在載入公開酒吧…':state.loaded?'↻ 更新 OSM 酒吧點位':'＋ 搜尋更多公開酒吧';
+  $('morePublic').disabled=state.loading;
+  $('publicInfo').textContent=state.loadMessage||'精選名單可離線搜尋；公開酒吧須連網載入，資料可能不完整。';
+  $('btnFav').classList.toggle('active',state.filter==='favorite');
+  $('radiusSelect').value=state.radius;
+  $('sortSelect').value=state.sorting;
   $('routeCount').textContent=state.route.length;
-  $('routeBadge').textContent=state.route.length;
 }
-function filtered(){let v=state.venue;const s=normalize(state.search);if(s)v=v.filter(a=>normalize([a.name,a.address,a.desc].join(' ')).includes(s));if(state.filter==='favorite')v=v.filter(a=>state.favorite.has(venueKey(a)));else if(state.filter!=='all')v=v.filter(a=>a.category===state.filter);return v}
-function renderBrowse(){const arr=filtered();$('browseList').innerHTML=arr.slice(0,state.show).map(card).join('')||'<div class="empty">找不到相符的酒吧，試試不同關鍵字。</div>';$('moreBtn').hidden=arr.length<=state.show;$('resultCount').textContent=`${arr.length} 間符合條件`;document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('active',x.dataset.filter===state.filter));$('osmStatus').textContent=state.osm.length?`已載入 ${state.osm.length} 個公開 OSM 點位（不保證全部營業）`:'精選名單可直接使用。公開 OSM 地圖點位請按需求載入。'}
-function renderRoute(){const r=state.route;$('routeBadge').textContent=r.length;$('routeCount').textContent=r.length;$('routeList').innerHTML=r.length?r.map((v,i)=>`<div class="route-stop"><div class="route-index">${i+1}</div><div class="route-main"><b>${esc(v.name)}</b><p>${esc(v.address||'臺南市')}</p><div class="row" style="margin-top:7px"><a href="${esc(mapUrl([v]))}" class="btn ghost tiny" target="_blank" rel="noopener noreferrer">🚶 這站導航</a><button class="btn ghost tiny" data-action="visited" data-id="${esc(v.id)}">${state.visited.has(venueKey(v))?'✓ 已到':'標記已到'}</button></div></div><div class="route-tools"><button class="btn tiny" data-move="up" data-i="${i}" ${i===0?'disabled':''} aria-label="上移">↑</button><button class="btn tiny" data-move="down" data-i="${i}" ${i===r.length-1?'disabled':''} aria-label="下移">↓</button><button class="btn tiny" data-move="del" data-i="${i}" aria-label="移除">×</button></div></div>`).join(''):'<div class="empty">還沒安排酒吧，先抽一間或從「找酒吧」加入吧！</div>';
-  $('allRoute').href=r.length?mapUrl(r.slice(0,4)):'#';$('allRoute').setAttribute('aria-disabled',!r.length?'true':'false');$('allRoute').style.pointerEvents=r.length?'auto':'none';$('allRoute').style.opacity=r.length?'1':'.45';$('routeLimit').textContent=r.length>4?'手機 Google Maps 可帶入的中途站數有限，先開啟前四站，其餘請逐站導航。':'';
-}
-function showTab(tab){state.tab=tab;for(const name of ['explore','browse','route']){$(name+'Pane').hidden=name!==tab;const btn=document.querySelector(`[data-tab="${name}"]`);btn.classList.toggle('active',name===tab);btn.setAttribute('aria-selected',String(name===tab))}if(tab==='browse')renderBrowse();if(tab==='route')renderRoute()}
-function pickRandom(){const pool=CURATED.filter(v=>state.filter==='all'||state.filter==='favorite'||v.category===state.filter);if(!pool.length){toast('這個分類暫無精選酒吧');return}const candidates=pool.filter(v=>!state.visited.has(venueKey(v)));const arr=candidates.length?candidates:pool;state.selected=arr[Math.floor(Math.random()*arr.length)];const v=state.selected;$('randomResult').innerHTML=`<div class="picked"><span class="small" style="color:var(--mint)">✨ 命運選中的第一杯</span><b>${esc(v.name)}</b><div class="small">${esc(v.address)}</div><div class="row" style="margin-top:10px"><button class="btn primary" id="addPicked">＋ 加入續攤</button><a class="btn" href="${esc(mapUrl([v]))}" target="_blank" rel="noopener noreferrer">🚶 步行導航</a></div></div>`;$('addPicked').onclick=()=>addRoute(v)}
-function updateMapPoints(){map.setPoints(state.osm);$('mapCount').textContent=`${state.osm.length} 個地圖點位`}
-function classify(t){const s=(t.name||'')+' '+(t.cuisine||'')+' '+(t.description||'');if(/啤酒|精釀|brew|beer|bier/i.test(s)||t.amenity==='biergarten')return'beer';if(/餐酒|bistro/i.test(s))return'bistro';return'cocktail'}
-function parseOsm(elements){const seen=new Set();const out=[];for(const e of elements){const t=e.tags||{},name=t['name:zh']||t.name||t['name:en'];if(!name)continue;const lat=Number(e.lat??e.center?.lat),lng=Number(e.lon??e.center?.lon);if(!Number.isFinite(lat)||!Number.isFinite(lng))continue;const key=normalize(name);if(seen.has(key)||CURATED.some(c=>normalize(c.name)===key))continue;seen.add(key);const street=[t['addr:street'],t['addr:housenumber']].filter(Boolean).join('');out.push({id:`osm-${e.type}-${e.id}`,name,lat,lng,address:['臺南市',t['addr:district'],street].filter(Boolean).join('')||'臺南市',category:classify(t),desc:'OpenStreetMap 公開標記（請先確認營業資訊）',source:'osm'})}return out.slice(0,260)}
-async function loadOsm(){if(state.busy)return;state.busy=true;$('loadOsm').disabled=true;$('loadOsm').textContent='載入中…';$('osmStatus').textContent='正在讀取臺南公開酒吧點位…';
-  // Narrow, bounded urban-area query, only on user click. Never bulk fetch tiles.
-  const query='[out:json][timeout:12];(nwr["amenity"~"^(bar|pub|biergarten)$"](22.92,120.12,23.10,120.35););out center tags;';
-  const urls=['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter'];let success=false;
-  for(const u of urls){const ac=new AbortController();const t=setTimeout(()=>ac.abort(),13000);try{const res=await fetch(u,{method:'POST',body:new URLSearchParams({data:query}),signal:ac.signal});if(!res.ok)throw Error('HTTP '+res.status);const json=await res.json();if(!Array.isArray(json.elements))throw Error('資料格式不正確');state.osm=parseOsm(json.elements);state.venue=[...CURATED,...state.osm];updateMapPoints();renderBrowse();renderExplore();toast(`已載入 ${state.osm.length} 個公開地圖點位`);success=true;break}catch{}finally{clearTimeout(t)}}
-  if(!success){$('osmStatus').textContent='OSM 服務暫時無法連線。精選酒吧、隨機抽店和導航不受影響。';toast('公開地圖服務連線失敗，可稍後再試')}
-  $('loadOsm').disabled=false;$('loadOsm').textContent='↻ 更新公開酒吧';state.busy=false;
-}
-function setMapSelection(data){if(data.type==='origin'){$('pickStart').classList.remove('soft');setOrigin({name:'地圖選擇的位置',address:`${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`,lat:data.lat,lng:data.lng,type:'picked'}, {center:false});toast('新起點已設定');return}const v=data.venue;$('mapPoi').hidden=false;$('mapPoi').innerHTML=`<b>${esc(v.name)}</b><p>${esc(v.address||'臺南市・依地圖座標')}</p><div class="row"><button class="btn primary tiny" id="mapAdd">＋ 加入續攤</button><a class="btn tiny" href="${esc(mapUrl([v]))}" target="_blank" rel="noopener noreferrer">🚶 導航</a><button class="btn ghost tiny" id="mapClose">關閉</button></div>`;$('mapAdd').onclick=()=>addRoute(v);$('mapClose').onclick=()=>{$('mapPoi').hidden=true}}
-async function originFromInput(){const val=$('originInput').value.trim();if(!val){toast('請先輸入地址或座標');return}const m=val.match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,3}(?:\.\d+)?)$/)||val.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);if(m){const lat=Number(m[1]),lng=Number(m[2]);if(Math.abs(lat)>90||Math.abs(lng)>180){toast('座標超出範圍');return}setOrigin({name:'自訂座標',address:`${lat}, ${lng}`,lat,lng,type:'custom'});toast('已設定起點');return}if(/maps\.app\.goo\.gl/i.test(val)){toast('Google 短網址無法直接解析，請改用地址或經緯度');return}
-  const btn=$('originSearch');btn.disabled=true;btn.textContent='尋找中…';
-  try{const query=/台南|臺南/.test(val)?val:val+' 臺南市';const ac=new AbortController();const t=setTimeout(()=>ac.abort(),8500);try{const r=await fetch('https://nominatim.openstreetmap.org/search?'+new URLSearchParams({q:query,format:'json',limit:3,'accept-language':'zh-TW'}),{signal:ac.signal});if(!r.ok)throw Error('geocode');const arr=await r.json();if(!arr.length)throw Error('no result');setOrigin({name:val,address:val,lat:Number(arr[0].lat),lng:Number(arr[0].lon),type:'custom'});toast('起點已設定，請確認地圖位置')}finally{clearTimeout(t)}}catch{setOrigin({name:val,address:val,type:'custom'}, {center:false});toast('地址交由 Google Maps 導航解析；地圖保持臺南位置')}finally{btn.disabled=false;btn.textContent='設定'}
-}
-function shareText(){return '🍸 府城微醺地圖｜我的續攤\n起點：'+(state.origin.address||state.origin.name)+'\n'+state.route.map((v,i)=>`${i+1}. ${v.name}｜${v.address}`).join('\n')+'\nGoogle Maps：'+mapUrl(state.route.slice(0,4))}
-async function share(){if(!state.route.length){toast('請先加入酒吧');return}const text=shareText();try{if(navigator.share){await navigator.share({title:'府城微醺地圖',text});return}if(navigator.clipboard){await navigator.clipboard.writeText(text);toast('已複製續攤路線');return}}catch{}const area=document.createElement('textarea');area.value=text;document.body.append(area);area.select();try{document.execCommand('copy');toast('已複製續攤路線')}catch{toast('複製失敗，請直接使用 Google Maps 導航')}area.remove()}
-function buildShell(){
- $('app').innerHTML=`<header class="topbar"><div><div class="brand-label">● TAINAN AFTER DARK · 2026</div><h1 class="brand-title">府城<em>微醺</em>地圖 🍸</h1><div class="subtitle">今晚先喝哪一間？從赤崁出發，散步去續攤。</div></div><div class="version">${APP_VERSION} · 全新地圖</div></header>
- <div class="layout"><section class="panel"><nav class="navtabs" aria-label="網站功能"><button class="tab active" data-tab="explore" aria-selected="true">🍹 開喝</button><button class="tab" data-tab="browse" aria-selected="false">📍 找酒吧</button><button class="tab" data-tab="route" aria-selected="false">🗺️ 續攤 <span class="tabcount" id="routeBadge">0</span></button></nav><div class="contents">
- <section class="tabpane" id="explorePane"><div class="card"><div class="kicker">01 / 從哪裡開喝？</div><div class="origin-title" id="originTitle">${INN.name}</div><div class="small" id="originSub">${INN.address}</div><div class="row" style="margin-top:12px"><button class="btn primary" id="innStart">⌂ 民宿起點</button><button class="btn" id="gpsStart">◎ 目前位置</button><button class="btn" id="pickStart">⌖ 地圖選點</button></div><div class="row nowrap" style="margin-top:9px"><input id="originInput" class="field grow" placeholder="輸入地址、地名或經緯度" aria-label="自訂出發地"><button class="btn" id="originSearch">設定</button></div><div class="hint">GPS 需允許定位。外地起點也可用 Google Maps 規劃；沒有經緯度時地圖維持臺南。</div></div>
- <div class="card lucky"><div class="kicker">02 / THE FIRST DRINK</div><h2>今晚第一杯，交給命運。✨</h2><p class="small">選擇困難？從精選酒吧抽一間，直接導航或放進續攤清單。</p><button class="btn primary" id="randomBtn">🎲 幫我抽今晚第一間</button><div id="randomResult"></div></div>
- <div class="stats"><div class="stat"><b id="curatedCount">36</b>精選酒吧</div><div class="stat"><b id="osmCount">按需</b>公開點位</div><div class="stat"><b id="routeCount">0</b>續攤站數</div></div><div class="section-head"><h2>🍸 從民宿出發的候選酒吧</h2><span>不是即時有位資訊</span></div><div id="quickList"></div><p class="foot">十八歲以上才能飲酒。喝酒不開車或騎車；步行、搭計程車，並記得補水。店家地址、營業、低消與是否接受訂位，以當日公告為準。</p></section>
- <section class="tabpane" id="browsePane" hidden><div class="section-head"><h2>📍 臺南酒吧搜尋</h2><span id="resultCount"></span></div><input class="field" id="searchInput" placeholder="搜尋酒吧名稱、區域、街道…" aria-label="搜尋酒吧"><div class="filters"><button class="btn tiny filter active" data-filter="all">全部</button><button class="btn tiny filter" data-filter="cocktail">🍸 調酒</button><button class="btn tiny filter" data-filter="beer">🍺 啤酒</button><button class="btn tiny filter" data-filter="bistro">🍽️ 餐酒</button><button class="btn tiny filter" data-filter="favorite">♡ 收藏</button></div><div class="card"><div class="kicker">地圖資料採按需載入</div><div class="small" id="osmStatus">精選名單可直接使用。需要更多地圖點位再按載入。</div><div class="row" style="margin-top:10px"><button class="btn soft" id="loadOsm">＋ 載入公開酒吧點位</button><a class="btn ghost" href="https://www.google.com/maps/search/?api=1&query=%E8%87%BA%E5%8D%97%E5%B8%82%20%E9%85%92%E5%90%A7" target="_blank" rel="noopener noreferrer">Google 地圖找更多 ↗</a></div></div><div id="browseList"></div><button class="btn wide ghost" id="moreBtn" hidden>顯示更多</button><div class="note">精選名單不是「全臺南所有營業酒吧」。公開 OSM 點位可能缺漏或已停業，請先確認店家資訊。</div></section>
- <section class="tabpane" id="routePane" hidden><div class="card"><div class="kicker">03 / BAR HOPPING ROUTE</div><h2 style="margin:0 0 10px;font-size:20px">🥂 我的續攤路線</h2><div class="small">以下順序可手動上移、下移，也能逐站 Google Maps 步行導航。</div><div class="row" style="margin-top:12px"><a class="btn primary" id="allRoute" target="_blank" rel="noopener noreferrer">🚶 開啟步行路線</a><button class="btn" id="shareRoute">↗ 分享清單</button><button class="btn ghost" id="clearRoute">清空</button></div><div class="hint" id="routeLimit"></div></div><div id="routeList"></div><div class="note">Google Maps 在手機上對中途站數有限制；本站只提供規劃建議，路線及步行時間以 Google Maps 即時計算為準。</div></section>
- </div></section><section class="maparea" id="mapArea"><canvas id="mapCanvas" class="map-canvas" aria-label="臺南互動地圖。可拖曳移動、雙指縮放、點按標記。"></canvas><div class="map-status"><b>● 起點：<span id="mapOrigin">${INN.name}</span></b><span id="mapStatus">已啟用輕量 Canvas 地圖</span><span id="mapCount">0 個地圖點位</span></div><div class="map-controls"><button class="btn" id="mapHome">⌂ 回到民宿</button><button class="btn" id="mapCity">▣ 臺南市區</button><button class="btn" id="mapZoomIn">＋ 放大</button><button class="btn" id="mapZoomOut">－ 縮小</button></div><div class="map-tip">☝️ 地圖可拖曳・點公開酒吧標記・或用地圖指定起點</div><div class="map-poi" id="mapPoi" hidden></div><div class="map-attrib">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a></div></section></div><div class="toast" id="toast" role="status" aria-live="polite"></div>`;
-}
+function renderRoute(){const r=state.route;$('routeBadge').textContent=r.length;$('routeCount').textContent=r.length;
+  $('routeList').innerHTML=r.length?r.map((v,i)=>`<div class="stop"><span class="stop-index">${i+1}</span><div class="stop-main"><b>${esc(v.name)}</b><small>${esc(v.address||'臺南市')} ${hasCoords(v)?'・約 '+kmText(distance(v)):''}</small><div class="stop-actions"><a href="${esc(navUrl([v]))}" target="_blank" rel="noopener noreferrer">導航這站 ↗</a><button data-action="visited" data-id="${esc(v.id)}">${state.visited.has(idOf(v))?'✓ 已到過':'標記已到'}</button></div></div><div class="stop-controls"><button data-move="up" data-i="${i}" aria-label="上移" ${i===0?'disabled':''}>↑</button><button data-move="down" data-i="${i}" aria-label="下移" ${i===r.length-1?'disabled':''}>↓</button><button data-move="delete" data-i="${i}" aria-label="移除">×</button></div></div>`).join(''):'<div class="empty"><strong>還沒選今晚要去的店家</strong><p>在探索頁按「＋ 續攤」，就能建立路線。</p></div>';
+  const first=r.slice(0,4),next=r.find(v=>!state.visited.has(idOf(v)))||r[0];$('routeGo').href=r.length?navUrl(first):'#';$('routeGo').classList.toggle('disabled',!r.length);$('routeNext').href=next?navUrl([next]):'#';$('routeNext').classList.toggle('disabled',!next);$('routeCaveat').textContent=r.length>4?'手機 Google Maps 單次只帶入前四站，其餘可逐站導航。':'地圖上的連線是直線示意，不是實際步行路徑。導航請以 Google Maps 為準。';
+  $('stickyRoute').hidden=!r.length; $('stickyCount').textContent=`${r.length} 間酒吧`;}
+function renderRandom(){const root=$('randomResult');if(!state.random){root.hidden=true;return}const v=state.random;root.hidden=false;root.innerHTML=`<div class="lucky-result"><span class="small">✨ 今晚喝這間</span><h3>${esc(v.name)}</h3><p>${esc(v.address||'臺南市')}</p><div class="actions"><button class="btn btn-brand" id="randomAdd">＋ 加入續攤</button><a href="${esc(navUrl([v]))}" class="btn" target="_blank" rel="noopener noreferrer">步行導航 ↗</a><button class="btn" id="randomAgain">再抽一次</button></div></div>`;$('randomAdd').onclick=()=>add(v);$('randomAgain').onclick=randomPick;}
+function randomPick(){const arr=state.venues.filter(v=>!state.visited.has(idOf(v))&&(state.filter==='all'||(state.filter==='favorite'&&state.fav.has(idOf(v)))||v.category===state.filter));const near=arr.filter(v=>distance(v)!=null&&distance(v)<=Number(state.radius));const pool=state.nearby&&near.length?near:(arr.length?arr:state.venues);
+  state.random=pool[Math.floor(Math.random()*pool.length)];renderRandom();if(state.nearby&&!near.length)toast('附近定位點位不足，本次從清單隨機挑選');}
+function showView(view){state.view=view;document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);b.setAttribute('aria-selected',String(b.dataset.view===view))});$('discoverPanel').hidden=view!=='discover';$('routePanel').hidden=view!=='route';if(view==='discover')renderResults();else renderRoute();if(window.innerWidth<800){$('sheet').classList.remove('collapsed');state.sheet='full'} }
+function setSearch(s){state.search=s;state.show=12;if(state.filter==='favorite'&&s)state.filter='all';if(state.nearby&&s)state.nearby=false;renderResults();}
+function setFilter(f){state.filter=f;state.show=12;renderResults()}
+function showNear(){state.nearby=!state.nearby;state.sorting='nearest';state.filter='all';state.search='';state.show=16;showView('discover');renderResults();if(state.nearby&&state.osm.length===0)loadOsm();}
+function updateOsm(venues){state.osm=venues;const all=CURATED.map(v=>({...v}));const loose=n=>normal(n).replace(/^(bar|the)/,'');for(const o of venues){let match=all.find(c=>{const a=loose(c.name),b=loose(o.name);return a===b||(b.length>=5&&a.includes(b))||(a.length>=5&&b.includes(a))});if(match&&!hasCoords(match)){match.lat=o.lat;match.lng=o.lng;match.coordsSource='osm'}else if(!match)all.push(o)}state.venues=all;updateMap();renderResults();renderRoute()}
+function parseOsm(elements){const seen=new Set(),out=[];for(const e of elements){const t=e.tags||{};const name=t['name:zh']||t.name||t['name:en'];const lat=Number(e.lat??e.center?.lat),lng=Number(e.lon??e.center?.lon);if(!name||!Number.isFinite(lat)||!Number.isFinite(lng)||lat<22.8||lat>23.55||lng<119.95||lng>120.85)continue;const n=normal(name);if(seen.has(n))continue;seen.add(n);const address=['臺南市',t['addr:district'],t['addr:street'],t['addr:housenumber']].filter(Boolean).join('')||'臺南市';const category=/beer|brew|bier|啤酒|精釀/i.test(name+' '+(t.description||''))||t.amenity==='biergarten'?'beer':/餐酒|bistro/i.test(name)?'bistro':'cocktail';out.push({id:`osm-${e.type}-${e.id}`,name,lat,lng,address,category,desc:'OpenStreetMap 公開標記，營業資訊需確認',source:'osm'})}return out.slice(0,450)}
+const OSM_QUERY='[out:json][timeout:20];(nwr["amenity"~"^(bar|pub|biergarten)$"](22.90,120.11,23.12,120.37););out center tags;';
+async function loadOsm(force=false){if(state.loading)return;state.loading=true;state.loadMessage='正在查詢 OSM 公開酒吧點位（需要網路）…';renderResults();if(!force){const cached=getLocal('tainan-bar-hop-osm-v6',null);if(cached&&Date.now()-cached.at<12*3600000&&Array.isArray(cached.elements)){updateOsm(parseOsm(cached.elements));state.loading=false;state.loaded=true;state.loadMessage=`已載入 ${state.osm.length} 個公開點位（暫存）`;renderResults();return}}
+  const endpoints=['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter'];let error='';for(const url of endpoints){const c=new AbortController(),time=setTimeout(()=>c.abort(),12000);try{const res=await fetch(url,{method:'POST',body:new URLSearchParams({data:OSM_QUERY}),signal:c.signal});if(!res.ok)throw Error('HTTP '+res.status);const json=await res.json();if(!Array.isArray(json.elements))throw Error('無效資料');try{localStorage.setItem('tainan-bar-hop-osm-v6',JSON.stringify({at:Date.now(),elements:json.elements}))}catch{}updateOsm(parseOsm(json.elements));state.loaded=true;state.loadMessage=`已載入 ${state.osm.length} 個公開點位（部分店家可能已歇業）`;state.loading=false;renderResults();toast(`載入 ${state.osm.length} 個公開酒吧點位`);return}catch(e){error=String(e.message||e)}finally{clearTimeout(time)}}state.loading=false;state.loadMessage='公開點位服務暫時無法連線；精選酒吧搜尋仍可用，或改用 Google Maps。';renderResults();toast('OSM 連線失敗：請稍後重試')}
+async function fromAddress(){const text=$('addressInput').value.trim();if(!text){toast('請輸入地址、地名或經緯度');return}const m=text.match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,3}(?:\.\d+)?)$/)||text.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);if(m){const lat=+m[1],lng=+m[2];if(Math.abs(lat)>90||Math.abs(lng)>180)return toast('座標超出範圍');setStart({name:'自訂起點',address:`${lat}, ${lng}`,lat,lng,type:'custom'});$('startOptions').hidden=true;return}if(/maps\.app\.goo\.gl/i.test(text)){toast('Google 短網址無法直接解析，請輸入地址或座標');return}const btn=$('setAddress');btn.disabled=true;btn.textContent='查詢中…';let p={name:text,address:text,type:'custom'};const c=new AbortController(),t=setTimeout(()=>c.abort(),7500);try{const q=/(台南|臺南)/.test(text)?text:`${text} 臺南市`;const res=await fetch('https://nominatim.openstreetmap.org/search?'+new URLSearchParams({q,format:'json',limit:3,'accept-language':'zh-TW'}),{signal:c.signal});if(!res.ok)throw Error('no');const arr=await res.json();if(arr.length){p.lat=Number(arr[0].lat);p.lng=Number(arr[0].lon)}else toast('地址已用於導航，但地圖找不到精確位置')}catch{toast('地址已用於導航，地圖未確認座標')}finally{clearTimeout(t);btn.disabled=false;btn.textContent='設為起點'}setStart(p);$('startOptions').hidden=true;}
+function shareRoute(){if(!state.route.length)return toast('請先加入酒吧');const txt='🍸 府城微醺地圖｜今晚續攤\n起點：'+(state.origin.address||state.origin.name)+'\n'+state.route.map((v,i)=>`${i+1}. ${v.name}｜${v.address}`).join('\n')+'\n'+navUrl(state.route.slice(0,4));if(navigator.share){navigator.share({title:'府城微醺地圖',text:txt}).catch(()=>{});return}if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>toast('已複製續攤清單')).catch(()=>toast('無法複製'))}else toast('此瀏覽器不支援分享')}
+function build(){ $('app').innerHTML=`
+<header class="topbar"><div><div class="eyebrow">● TAINAN AFTER DARK <span class="version">${VERSION}</span></div><h1>府城<span>微醺</span>地圖 <i>🍸</i></h1><p>選一間好酒吧，讓夜晚自然開始。</p></div><button class="start-chip" id="startShortcut">民宿起點</button></header>
+<div class="layout">
+<main class="maparea" id="mapArea"><canvas id="mapCanvas" aria-label="臺南互動地圖，拖曳瀏覽、點圖釘選酒吧" ></canvas><div class="map-status"><strong>📍 <span id="mapOrigin">${esc(INN.name)}</span></strong><small id="pinCount">0 個已定位點位</small></div><div class="map-controls"><button id="homeMap" aria-label="返回起點">⌂</button><button id="zoomIn" aria-label="放大">＋</button><button id="zoomOut" aria-label="縮小">－</button></div><div class="map-venue" id="mapVenue" hidden></div><div class="attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></div></main>
+<section class="sheet" id="sheet"><button class="sheet-grip" id="sheetToggle" aria-label="展開或收合酒吧清單"><span></span></button><nav class="tabs"><button class="tab active" data-view="discover" aria-selected="true">🗺️ 探索酒吧</button><button class="tab" data-view="route" aria-selected="false">🥂 我的續攤 <b id="routeBadge">0</b></button></nav>
+<div class="sheet-content"><section id="discoverPanel">
+<div class="start-box"><div><small>今晚從哪裡出發？</small><strong id="startTitle">${esc(INN.name)}</strong><span id="startAddr">${esc(INN.address)}</span></div><button class="btn" id="changeStart">更換起點</button></div>
+<div class="start-options" id="startOptions" hidden><div class="actions"><button class="btn" id="startInn">⌂ 民宿</button><button class="btn" id="startGps">◎ 目前位置</button><button class="btn" id="startPick">⌖ 地圖點選</button></div><div class="input-group"><input id="addressInput" placeholder="輸入地址、地名或座標…" aria-label="新的出發地"><button class="btn btn-brand" id="setAddress">設為起點</button></div></div>
+<div class="hero-actions"><button class="hero-btn hero-near" id="nearBtn"><b>🚶 附近開喝</b><span>找附近有座標的酒吧</span></button><button class="hero-btn hero-random" id="randomBtn"><b>🎲 幫我選一間</b><span>不用猶豫，今晚開喝</span></button></div>
+<div id="randomResult" hidden></div>
+<div class="search-group"><label for="searchInput">搜尋酒吧</label><div class="search-bar"><span>⌕</span><input id="searchInput" autocomplete="off" placeholder="搜尋店名、街道、酒種…" aria-label="搜尋酒吧"><button id="searchClear" aria-label="清除搜尋" hidden>×</button></div></div>
+<div class="filterrow"><button class="chip active" data-filter="all" id="filterAll">全部</button><button class="chip" data-filter="cocktail">🍸 調酒</button><button class="chip" data-filter="beer">🍺 啤酒</button><button class="chip" data-filter="bistro">🍽️ 餐酒</button><button class="chip" data-filter="favorite" id="btnFav">♡ 收藏</button></div>
+<div class="sortrow"><label>範圍 <select id="radiusSelect"><option value="1">1 公里</option><option value="2">2 公里</option><option value="5">5 公里</option><option value="10">10 公里</option></select></label><label>排序 <select id="sortSelect"><option value="recommended">精選優先</option><option value="nearest">距離最近</option><option value="alpha">名稱排序</option></select></label></div>
+<div class="section-title"><strong>值得去的酒吧</strong><span id="resultCount">— 間</span></div><p class="muted" id="nearState">清單會隨關鍵字與分類即時篩選</p>
+<div id="results"></div><button class="btn load-more" id="loadMore" hidden>顯示更多</button>
+<div class="more-source"><strong>還想探索其他酒吧？</strong><p id="publicInfo">精選名單可離線搜尋；公開酒吧須連網載入。</p><button class="btn btn-brand" id="morePublic">＋ 搜尋更多公開酒吧</button><a id="searchGoogle" href="https://www.google.com/maps/search/?api=1&query=%E8%87%BA%E5%8D%97%E5%B8%82%20%E9%85%92%E5%90%A7" target="_blank" rel="noopener noreferrer">Google 地圖找更多 ↗</a><small>公開資料來自 OSM／Overpass，並非臺南所有營業酒吧；店家資訊請到 Google Maps 或官方網站核實。</small></div>
+</section><section id="routePanel" hidden><div class="section-title"><strong>🥂 今晚的續攤路線</strong><span id="routeCount">0</span></div><p class="muted">按上／下調整順序，或依直線距離快速排序。</p><div class="route-actions"><a class="btn btn-brand" id="routeGo" target="_blank" rel="noopener noreferrer">🚶 Google Maps 步行導航</a><a class="btn" id="routeNext" target="_blank" rel="noopener noreferrer">導航下一站 ↗</a></div><div id="routeList"></div><div class="route-actions"><button class="btn" id="optimizeRoute">✨ 自動排序</button><button class="btn" id="shareRoute">分享清單</button><button class="btn btn-ghost" id="clearRoute">清空</button></div><p class="muted" id="routeCaveat"></p></section></div>
+</section></div>
+<div class="sticky-route" id="stickyRoute" hidden><span>🥂 <b id="stickyCount">0 間酒吧</b> 已加入續攤</span><button id="goRoute">查看路線 ↗</button></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>`}
+build();
+const map=new CanvasBarMap($('mapCanvas'),{center:INN,onSelect:data=>{
+ if(data.type==='origin'){state.pickMode=false;setStart({name:'地圖指定起點',address:`${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`,lat:data.lat,lng:data.lng,type:'map'});toast('已設定地圖起點');return}
+ focus(data.venue);
+},onStatus:msg=>{if(!state.loadMessage)$('publicInfo').textContent=msg}});
+map.setOrigin(INN); updateDistanceLabel(); updateMap(); renderResults();renderRoute();renderRandom();
 
-buildShell();
-const map=new CanvasBarMap($('mapCanvas'),{center:INN,onSelect:setMapSelection,onStatus:txt=>{$('mapStatus').textContent=txt}});
-map.setOrigin(INN);
-renderExplore();renderBrowse();renderRoute();
-
-// Delegate click events for dynamically rendered cards only.
 document.addEventListener('click',e=>{
- const move=e.target.closest('[data-move]');if(move){const i=Number(move.dataset.i);if(move.dataset.move==='del'){state.route.splice(i,1);save();renderRoute();renderBrowse();renderExplore()}else moveRoute(i,move.dataset.move==='up'?-1:1);return}
- const el=e.target.closest('[data-action]');if(!el)return;
- const v=state.venue.find(p=>p.id===el.dataset.id)||state.route.find(p=>p.id===el.dataset.id);
- if(!v)return;
- if(el.dataset.action==='add')addRoute(v);
- if(el.dataset.action==='favorite'){const k=venueKey(v);state.favorite.has(k)?state.favorite.delete(k):state.favorite.add(k);save();renderBrowse();renderExplore()}
- if(el.dataset.action==='focus'&&Number.isFinite(v.lat)){map.setCenter(v);map.setZoom(16);$('mapPoi').hidden=true}
- if(el.dataset.action==='visited'){const k=venueKey(v);state.visited.has(k)?state.visited.delete(k):state.visited.add(k);save();renderRoute()}
+ const m=e.target.closest('[data-move]');if(m){const i=Number(m.dataset.i);if(m.dataset.move==='delete')remove(i);else move(i,m.dataset.move==='up'?-1:1);return}
+ const a=e.target.closest('[data-action]');if(a){const v=findVenue(a.dataset.id);if(!v)return;if(a.dataset.action==='add')add(v);if(a.dataset.action==='focus')focus(v);if(a.dataset.action==='fav')toggleFavorite(v);if(a.dataset.action==='visited'){const key=idOf(v);state.visited.has(key)?state.visited.delete(key):state.visited.add(key);save();renderRoute()}return}
+ const b=e.target.closest('[data-filter]');if(b){setFilter(b.dataset.filter)}
+ const tab=e.target.closest('[data-view]');if(tab)showView(tab.dataset.view);
 });
-document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
-$('randomBtn').onclick=pickRandom;
-$('innStart').onclick=()=>{setOrigin({...INN,type:'inn'});map.setZoom(15);toast('已回到民宿起點')};
-$('gpsStart').onclick=()=>{if(!navigator.geolocation){toast('瀏覽器不支援定位');return}toast('正在取得定位…');navigator.geolocation.getCurrentPosition(p=>{setOrigin({name:'我的目前位置',address:`${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`,lat:p.coords.latitude,lng:p.coords.longitude,type:'gps'});toast('GPS 起點已設定')},()=>toast('無法取得位置：請檢查定位權限'),{enableHighAccuracy:false,timeout:11000,maximumAge:60000})};
-$('pickStart').onclick=()=>{state.pickMode=!state.pickMode;map.setPickMode(state.pickMode);$('pickStart').classList.toggle('soft',state.pickMode);toast(state.pickMode?'請點一下上方地圖，指定新起點':'已取消地圖選點');if(state.pickMode&&window.innerWidth<=850)$('mapArea').scrollIntoView({behavior:'smooth'})};
-$('originSearch').onclick=originFromInput;$('originInput').onkeydown=e=>{if(e.key==='Enter')originFromInput()};
-$('searchInput').oninput=e=>{state.search=e.target.value;state.show=12;renderBrowse()};
-document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{state.filter=b.dataset.filter;state.show=12;renderBrowse()});
-$('moreBtn').onclick=()=>{state.show+=12;renderBrowse()};$('loadOsm').onclick=loadOsm;
-$('mapHome').onclick=()=>{map.setCenter(INN);map.setZoom(15)};
-$('mapCity').onclick=()=>{map.setCenter({lat:22.996,lng:120.201});map.setZoom(14)};
-$('mapZoomIn').onclick=()=>map.setZoom(map.zoom+1);$('mapZoomOut').onclick=()=>map.setZoom(map.zoom-1);
-$('shareRoute').onclick=share;$('clearRoute').onclick=()=>{if(!state.route.length)return;if(confirm('清空今晚的續攤清單？')){state.route=[];save();renderRoute();renderBrowse();renderExplore()}};
+$('searchInput').addEventListener('input',e=>setSearch(e.target.value));
+$('searchClear').onclick=()=>{state.search='';renderResults();$('searchInput').focus()};
+$('radiusSelect').onchange=e=>{state.radius=e.target.value;renderResults()};
+$('sortSelect').onchange=e=>{state.sorting=e.target.value;renderResults()};
+$('nearBtn').onclick=showNear;$('randomBtn').onclick=randomPick;
+$('morePublic').onclick=()=>loadOsm(true);
+$('loadMore').onclick=()=>{state.show+=12;renderResults()};
+$('changeStart').onclick=()=>{$('startOptions').hidden=!$('startOptions').hidden};
+$('startShortcut').onclick=()=>{$('startOptions').hidden=false;showView('discover');$('startOptions').scrollIntoView({block:'nearest',behavior:'smooth'})};
+$('startInn').onclick=()=>{setStart({...INN,type:'inn'});$('startOptions').hidden=true;toast('已切回民宿起點')};
+$('startGps').onclick=()=>{if(!navigator.geolocation)return toast('瀏覽器不支援定位');toast('正在取得目前位置…');navigator.geolocation.getCurrentPosition(p=>{setStart({name:'我的目前位置',lat:p.coords.latitude,lng:p.coords.longitude,address:`${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`,type:'gps'});$('startOptions').hidden=true;toast('已設定目前位置')},()=>toast('定位失敗，請檢查位置權限'),{enableHighAccuracy:false,timeout:11000,maximumAge:60000})};
+$('startPick').onclick=()=>{state.pickMode=true;map.setPickMode(true);toast('請在地圖上點一下設定起點');if(window.innerWidth<800)window.scrollTo({top:0,behavior:'smooth'})};
+$('setAddress').onclick=fromAddress;$('addressInput').onkeydown=e=>{if(e.key==='Enter')fromAddress()};
+$('homeMap').onclick=()=>{map.setCenter(hasCoords(state.origin)?state.origin:INN);map.setZoom(15)};
+$('zoomIn').onclick=()=>map.setZoom(map.zoom+1);$('zoomOut').onclick=()=>map.setZoom(map.zoom-1);
+$('optimizeRoute').onclick=routeOptimize;$('shareRoute').onclick=shareRoute;
+$('clearRoute').onclick=()=>{if(state.route.length&&confirm('要清空今晚的續攤路線嗎？')){state.route=[];save();renderRoute();renderResults();updateRouteMap()}};
+$('goRoute').onclick=()=>showView('route');
+$('sheetToggle').onclick=()=>{const collapsed=$('sheet').classList.toggle('collapsed');state.sheet=collapsed?'peek':'full'};
+// Verify cached data if available, without silently hitting Overpass on startup.
+const cached=getLocal('tainan-bar-hop-osm-v6',null);
+if(cached&&Date.now()-cached.at<12*3600000&&Array.isArray(cached.elements)){
+  updateOsm(parseOsm(cached.elements));state.loaded=true;state.loadMessage=`已有 ${state.osm.length} 個公開酒吧點位快取，可按更新重新取得`;renderResults();
+}

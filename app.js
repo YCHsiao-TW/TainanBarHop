@@ -1,8 +1,9 @@
-import {INN,CURATED} from './data.js?v=6.1.0';
-import {fetchPublicBars, geocodePlace} from './poi.js?v=6.1.0';
-import {CanvasBarMap} from './map.js?v=6.1.0';
+import {fetchPublicBars, geocodePlace} from './poi.js?v=6.4.0';
+import {CanvasBarMap} from './map.js?v=6.4.0';
+import {INN,CURATED} from './data.js?v=6.4.0';
+import {loadDoorplateIndex,evaluateVenue,matchPublicToCurated,summarizeAudit,meters} from './audit.js?v=6.4.0';
 
-const VERSION='JS v6.1';
+const VERSION='JS v6.4';
 const STORE='tainan-bar-hop-js-v6';
 const GEO_STORE='tainan-bar-hop-verified-coordinates-v61';
 const POI_STORE='tainan-bar-hop-public-snapshot-v61';
@@ -17,28 +18,33 @@ const searchString=v=>normal([v.name,v.address,v.desc,v.category,label[v.categor
 const kmBetween=(a,b)=>{if(!hasCoords(a)||!hasCoords(b))return null;const r=Math.PI/180,dLat=(b.lat-a.lat)*r,dLng=(b.lng-a.lng)*r,x=Math.sin(dLat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2;return 12742*Math.asin(Math.min(1,Math.sqrt(x)))};
 const kmText=d=>d===null?'距離未確認':d<1?`${Math.round(d*1000)} m`:`${d.toFixed(1)} km`;
 const coordsStr=p=>`${p.lat},${p.lng}`;
-const copyVenue=v=>({id:v.id,name:v.name,address:v.address,category:v.category,lat:v.lat,lng:v.lng,source:v.source});
+const copyVenue=v=>({id:v.id,name:v.name,address:v.address,category:v.category,lat:v.lat,lng:v.lng,source:v.source,coordAudit:v.coordAudit});
 const getLocal=(k,def)=>{try{return JSON.parse(localStorage.getItem(k))??def}catch{return def}};
 const persisted=getLocal(STORE,{});
 const old=getLocal('tainan-bar-hop-js-v5',{});
 const cachedPoi=getLocal(POI_STORE,null);
 function validTainan(p){return Number.isFinite(p?.lat)&&Number.isFinite(p?.lng)&&p.lat>=22.75&&p.lat<=23.55&&p.lng>=119.95&&p.lng<=120.85}
-function restoredCurated(){const currentGeo=getLocal(GEO_STORE,{});return CURATED.map(v=>{const g=currentGeo[v.id];return validTainan(g)?{...v,lat:g.lat,lng:g.lng,coordsSource:g.source||'verified'}:{...v}})}
+function restoredCurated(){const currentGeo=getLocal(GEO_STORE,{});return CURATED.map(v=>{const g=currentGeo[v.id];if(validTainan(g)&&g.source==='manual')return {...v,lat:g.lat,lng:g.lng,coordsSource:'user-manual',coordQuality:'使用者手動確認'};return validTainan(v)?{...v}:validTainan(g)?{...v,lat:g.lat,lng:g.lng,coordsSource:g.source||'user-confirmed'}:{...v}})}
+const curatedBaseline=restoredCurated().map(v=>evaluateVenue({...v,officialPosition:validTainan(CURATED.find(c=>c.id===v.id))?{lat:CURATED.find(c=>c.id===v.id).lat,lng:CURATED.find(c=>c.id===v.id).lng}:null},null));
+const curatedById=new Map(curatedBaseline.map(v=>[v.id,v]));
 const state={
   origin:{...INN,type:'inn'},
-  venues:restoredCurated(),
-  osm:[], route:(persisted.route||old.route||[]).map(x=>({...x})),
+  venues:curatedBaseline,
+  osm:[], route:(persisted.route||old.route||[]).map(x=>{
+    const current=curatedById.get(x.id);
+    return validTainan(current)?{...x,lat:current.lat,lng:current.lng}:{...x};
+  }),
   fav:new Set(persisted.fav||old.favorite||[]),
   visited:new Set(persisted.visited||old.visited||[]),
   view:'discover', filter:'all', search:'', radius:'2', show:12,
   sorting:'recommended', nearby:false, selected:null,
   sheet:'peek', loading:false, loaded:false, loadMessage:'', geoBusy:false, pinTarget:null, provider:'',
-  pickMode:false, random:null
+  pickMode:false, random:null,doorplateIndex:null, auditStatus:'官方門牌比對準備中', auditExpanded:false, auditLoading:false, auditQueued:false
 };
 function save(){try{localStorage.setItem(STORE,JSON.stringify({route:state.route,fav:[...state.fav],visited:[...state.visited]}))}catch{}}
 function googlePlace(v){return 'https://www.google.com/maps/search/?'+new URLSearchParams({api:'1',query:`${v.name} ${v.address||'臺南市'}`})}
 function googleSearch(query){return 'https://www.google.com/maps/search/?'+new URLSearchParams({api:'1',query:query||'臺南 酒吧'})}
-function dest(v){return hasCoords(v)?coordsStr(v):`${v.name} ${v.address||'臺南市'}`}
+function dest(v){const q=v.coordAudit?.category;return hasCoords(v)&&q!=='conflict'&&q!=='review'?coordsStr(v):`${v.name} ${v.address||'臺南市'}`}
 function navUrl(arr){if(!arr.length)return '#';const params=new URLSearchParams({api:'1',destination:dest(arr[arr.length-1]),travelmode:'walking'});if(state.origin.type!=='gps')params.set('origin',hasCoords(state.origin)?coordsStr(state.origin):state.origin.address);if(arr.length>1)params.set('waypoints',arr.slice(0,-1).map(dest).join('|'));return 'https://www.google.com/maps/dir/?'+params}
 function toast(txt){const el=$('toast');el.textContent=txt;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3200)}
 function routeHas(v){return state.route.some(p=>idOf(p)===idOf(v))}
@@ -66,7 +72,7 @@ function venueCard(v){const d=distance(v),isPinned=hasCoords(v),fav=state.fav.ha
   return `<article class="venue" data-venue="${esc(v.id)}">
    <div class="venue-main"><div class="ven-head"><h3>${esc(v.name)}</h3><span class="source">${v.source==='curated'?'精選':'OSM'}</span></div>
      <p class="ven-address">📍 ${esc(v.address||'臺南市・位置依 OSM 標記')}</p>
-     <div class="tags"><span>${esc(label[v.category]||'🍸 酒吧')}</span><span>${isPinned?`約 ${kmText(d)}・直線距離`:'尚未確認座標'}</span></div>
+     <div class="tags"><span>${esc(label[v.category]||'🍸 酒吧')}</span><span>${isPinned?`約 ${kmText(d)}・直線距離`:'尚未確認座標'}</span><span class="quality ${v.coordAudit?.category==='conflict'?'quality-warn':''}" title="${esc(v.coordAudit?.reason||'')}">${esc(v.coordAudit?.quality||'位置待確認')}</span>${v.coordAudit?.deltaM!==null&&v.coordAudit?.deltaM!==undefined?`<span>兩源差 ${Math.round(v.coordAudit.deltaM)} m</span>`:''}</div>
    </div>
    <div class="venue-actions"><button class="btn btn-brand" data-action="add" data-id="${esc(v.id)}">${added?'✓ 已加入':'＋ 續攤'}</button>
    ${isPinned?`<button class="btn" data-action="focus" data-id="${esc(v.id)}">📍 看圖釘</button>`:`<button class="btn btn-geo" data-action="locate" data-id="${esc(v.id)}">📍 定位這間</button>`}
@@ -80,7 +86,7 @@ function renderResults(){const found=matches();$('resultCount').textContent=`${f
   $('searchClear').hidden=!state.search;
   $('searchGoogle').href=googleSearch(state.search?state.search+' 臺南':'臺南市 酒吧');
   $('searchGoogle').textContent=state.search?'在 Google 地圖搜尋「'+state.search.slice(0,22)+'」 ↗':'Google 地圖找更多 ↗';
-  $('nearState').textContent=state.nearby?`距離起點 ${state.radius} km 內有 ${found.length} 間已定位酒吧（直線距離；未定位店家不計入）`:`已定位 ${state.venues.filter(hasCoords).length} 間，可計算距離；${state.venues.filter(v=>!hasCoords(v)).length} 間待確認座標。`;
+  $('nearState').textContent=state.nearby?`距離起點 ${state.radius} km 內有 ${found.length} 間已定位酒吧（直線距離；未定位店家不計入）`:`精選酒吧 ${state.venues.filter(v=>v.source==='curated'&&hasCoords(v)).length}/${CURATED.length} 間具參考座標，公開酒吧 ${state.venues.filter(v=>v.source==='osm'&&hasCoords(v)).length} 間有定位；距離為直線估算。`;
   $('nearBtn').classList.toggle('active',state.nearby);
   $('searchInput').value=state.search;
   $('filterAll').classList.toggle('active',state.filter==='all');
@@ -104,16 +110,50 @@ function showView(view){state.view=view;document.querySelectorAll('[data-view]')
 function setSearch(s){state.search=s;state.show=12;if(state.filter==='favorite'&&s)state.filter='all';if(state.nearby&&s)state.nearby=false;renderResults();}
 function setFilter(f){state.filter=f;state.show=12;renderResults()}
 function showNear(){state.nearby=!state.nearby;state.sorting='nearest';state.filter='all';state.search='';state.show=16;showView('discover');renderResults();if(state.nearby&&state.venues.filter(hasCoords).length===0&&!state.loading)loadOsm();}
+function buildAuditedVenues(){
+ const baseline=restoredCurated().map(v=>({...v,officialPosition:validTainan(CURATED.find(c=>c.id===v.id))?{lat:CURATED.find(c=>c.id===v.id).lat,lng:CURATED.find(c=>c.id===v.id).lng}:null}));
+ return matchPublicToCurated(baseline,state.osm).map(v=>evaluateVenue(v,state.doorplateIndex));
+}
+function refreshCoordinateComparison(){
+ state.venues=buildAuditedVenues();
+ // Refresh previously saved itinerary and selected bar locations without losing order/favorites.
+ for(const old of state.route){const updated=state.venues.find(v=>v.id===old.id);if(updated){old.lat=updated.lat;old.lng=updated.lng;old.address=updated.address;old.coordAudit=updated.coordAudit;}}
+ save();updateMap();renderResults();renderRoute();renderRandom();renderAudit();
+}
 function updateOsm(venues,provider='OSM'){
- const unique=new Map();for(const v of venues){if(validTainan(v)&&v.name&&v.id)unique.set(v.id,v)}
+ const unique=new Map();for(const v of venues){if(validTainan(v)&&v.name&&v.id)unique.set(v.id,{...v,lat:Number(v.lat),lng:Number(v.lng)})}
  state.osm=[...unique.values()];state.provider=provider;
- const all=restoredCurated();const loose=n=>normal(n).replace(/^(bar|the)/,'');
- for(const o of state.osm){let match=all.find(c=>{const a=loose(c.name),b=loose(o.name);return a===b||(b.length>=6&&a.includes(b))||(a.length>=6&&b.includes(a))});
-  if(match){if(!hasCoords(match)){match.lat=o.lat;match.lng=o.lng;match.coordsSource=provider}}else all.push(o)}
- state.venues=all;
- // Saved routes retain the same venue IDs: synchronize corrected locations.
- for(const v of state.route){const updated=all.find(a=>a.id===v.id);if(updated&&validTainan(updated)){v.lat=updated.lat;v.lng=updated.lng}}
- updateMap();renderResults();renderRoute();renderRandom();
+ refreshCoordinateComparison();
+ if(state.osm.length){state.doorplateIndex=null;ensureDoorplates();}
+}
+async function ensureDoorplates(){
+ if(state.auditLoading){state.auditQueued=true;return}if(state.doorplateIndex)return;
+ state.auditLoading=true;state.auditStatus='正在背景比對市府門牌參考座標…';renderAudit();
+ try{state.doorplateIndex={lookup:await loadDoorplateIndex(state.osm)};state.auditStatus='已自動比對官方門牌索引（114 年臺南市門牌坐標）';refreshCoordinateComparison()}
+ catch(e){state.auditStatus='離線索引暫無法載入；已使用 35 間內建門牌座標，其餘保留 OSM 原始點位：'+String(e.message||e).slice(0,65);renderAudit()}
+ finally{state.auditLoading=false;if(state.auditQueued){state.auditQueued=false;state.doorplateIndex=null;ensureDoorplates()}}
+}
+function renderAudit(){
+ const pane=$('auditSummary');if(!pane)return;
+ const k=summarizeAudit(state.venues),publicCount=state.osm.length;
+ pane.innerHTML=`<div class="audit-kpis"><div><b>${k.total}</b><span>目前酒吧</span></div><div><b>${k.verifiedDoorplates}</b><span>門牌來源</span></div><div><b>${k.both}</b><span>雙源可比</span></div><div><b>${k.conflict+k.review}</b><span>需複核</span></div></div><p class="muted">${esc(state.auditStatus)}。已載入 ${publicCount} 間 OSM 店家；若舊版快照已保存在本瀏覽器，會自動納入比較。</p>`;
+ const details=$('auditDetails');if(!details)return;
+ details.hidden=!state.auditExpanded;
+ if(state.auditExpanded){
+  const sorted=[...state.venues].sort((a,b)=>{
+   const rank=x=>x.coordAudit?.category==='conflict'?0:x.coordAudit?.category==='review'?1:x.coordAudit?.category==='aligned'?2:3;
+   return rank(a)-rank(b)||((b.coordAudit?.deltaM||0)-(a.coordAudit?.deltaM||0));
+  });
+  details.innerHTML=sorted.map(v=>{const a=v.coordAudit||{},fmt=p=>p?`${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`:'—';return `<article class="audit-entry"><div class="audit-head"><b>${esc(v.name)}</b><span>${esc(a.quality||'待核對')}</span></div><p>${esc(v.address||'地址未完整')}</p><small>原始 OSM：${esc(fmt(v.osmPosition))}　｜　官方門牌：${esc(fmt(v.officialPosition))}</small><small>差距：${a.deltaM===null||a.deltaM===undefined?'無法雙源比對':Math.round(a.deltaM)+' 公尺'}　·　採用：${a.choice==='osm'?'OSM 圖釘':a.choice==='doorplate'?'市府門牌':a.choice==='manual'?'手動位置':'其他'}</small><p>${esc(a.reason||'')}</p></article>`}).join('');
+ }
+ $('auditToggle').textContent=state.auditExpanded?'收起全部座標比較':'查看全部 '+k.total+' 間的比較結果';
+}
+function exportAuditCsv(){
+ const titles=['酒吧','地址','原始OSM緯度','原始OSM經度','市府門牌緯度','市府門牌經度','兩者相差公尺','採用來源','品質分類','判斷依據'];
+ const quote=v=>'"'+String(v??'').replace(/^([=+@-])/,'\'$1').replace(/"/g,'""')+'"';
+ const rows=state.venues.map(v=>{const a=v.coordAudit||{};return [v.name,v.address,v.osmPosition?.lat??'',v.osmPosition?.lng??'',v.officialPosition?.lat??'',v.officialPosition?.lng??'',a.deltaM==null?'':a.deltaM.toFixed(1),a.choice||'',a.quality||'',a.reason||'']});
+ const csv='\uFEFF'+[titles,...rows].map(arr=>arr.map(quote).join(',')).join('\r\n');
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),el=document.createElement('a');el.href=url;el.download='TainanBarHop_v64_coordinate_audit.csv';document.body.appendChild(el);el.click();setTimeout(()=>{URL.revokeObjectURL(url);el.remove()},1000)
 }
 function showProviderMessage(text){state.loadMessage=text;renderResults()}
 async function loadOsm(force=false){
@@ -153,8 +193,8 @@ function persistVenueCoord(id,p,source){
  if(!validTainan(p)){toast('選擇的位置超出台南範圍');return}
  const dict=getLocal(GEO_STORE,{});dict[id]={lat:p.lat,lng:p.lng,source};try{localStorage.setItem(GEO_STORE,JSON.stringify(dict))}catch{}
  const v=state.venues.find(v=>v.id===id);if(!v)return;v.lat=p.lat;v.lng=p.lng;v.coordsSource=source;
- state.route.filter(v=>v.id===id).forEach(v=>{v.lat=p.lat;v.lng=p.lng});save();updateMap();renderResults();renderRoute();renderRandom();
- map.setCenter(p);map.setZoom(16);focus(v);
+ state.route.filter(v=>v.id===id).forEach(v=>{v.lat=p.lat;v.lng=p.lng});save();refreshCoordinateComparison();
+ map.setCenter(p);map.setZoom(16);focus(findVenue(id)||v);
 }
 function startManualPin(v){state.pinTarget=v.id;map.setPickMode(true);toast(`請在地圖點選「${v.name}」的位置；定位完成前不會當成真實座標。`);if(window.innerWidth<800)window.scrollTo({top:0,behavior:'smooth'})}
 async function fromAddress(){const text=$('addressInput').value.trim();if(!text){toast('請輸入地址、地名或經緯度');return}const m=text.match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,3}(?:\.\d+)?)$/)||text.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);if(m){const lat=+m[1],lng=+m[2];if(Math.abs(lat)>90||Math.abs(lng)>180)return toast('座標超出範圍');setStart({name:'自訂起點',address:`${lat}, ${lng}`,lat,lng,type:'custom'});$('startOptions').hidden=true;return}if(/maps\.app\.goo\.gl/i.test(text)){toast('Google 短網址無法直接解析，請輸入地址或座標');return}const btn=$('setAddress');btn.disabled=true;btn.textContent='查詢中…';let p={name:text,address:text,type:'custom'};try{
@@ -181,6 +221,7 @@ function build(){ $('app').innerHTML=`
 <div class="section-title"><strong>值得去的酒吧</strong><span id="resultCount">— 間</span></div><p class="muted" id="nearState">清單會隨關鍵字與分類即時篩選</p>
 <div id="results"></div><button class="btn load-more" id="loadMore" hidden>顯示更多</button>
 <div class="more-source"><strong>還想探索其他酒吧？</strong><p id="publicInfo">先載入公開酒吧以顯示圖釘；也能對精選店家按「定位這間」儲存座標。</p><button class="btn btn-brand" id="morePublic">↻ 更新公開酒吧</button><a id="searchGoogle" href="https://www.google.com/maps/search/?api=1&query=%E8%87%BA%E5%8D%97%E5%B8%82%20%E9%85%92%E5%90%A7" target="_blank" rel="noopener noreferrer">Google 地圖找更多 ↗</a><small>公開資料來自 OSM／ArcGIS／Overpass，並非臺南所有營業酒吧；店家資訊請到 Google Maps 或官方網站核實。</small></div>
+<div class="audit-panel"><div class="audit-title"><strong>🧭 座標品質自動比較</strong><small>OSM 原始點位 × 臺南市政府門牌</small></div><div id="auditSummary" aria-live="polite"></div><div class="actions"><button class="btn" id="auditToggle">查看座標比較</button><button class="btn btn-ghost" id="auditExport">下載比較 CSV</button></div><div id="auditDetails" hidden></div><p class="muted">系統比較的是<strong>資料證據的一致性</strong>，無法單靠兩個座標判定店家真正入口。疑似衝突時以門牌位置作為暫時參考，實際到店請用店名和地址向 Google Maps 核對。</p></div>
 </section><section id="routePanel" hidden><div class="section-title"><strong>🥂 今晚的續攤路線</strong><span id="routeCount">0</span></div><p class="muted">按上／下調整順序，或依直線距離快速排序。</p><div class="route-actions"><a class="btn btn-brand" id="routeGo" target="_blank" rel="noopener noreferrer">🚶 Google Maps 步行導航</a><a class="btn" id="routeNext" target="_blank" rel="noopener noreferrer">導航下一站 ↗</a></div><div id="routeList"></div><div class="route-actions"><button class="btn" id="optimizeRoute">✨ 自動排序</button><button class="btn" id="shareRoute">分享清單</button><button class="btn btn-ghost" id="clearRoute">清空</button></div><p class="muted" id="routeCaveat"></p></section></div>
 </section></div>
 <div class="sticky-route" id="stickyRoute" hidden><span>🥂 <b id="stickyCount">0 間酒吧</b> 已加入續攤</span><button id="goRoute">查看路線 ↗</button></div>
@@ -191,7 +232,7 @@ const map=new CanvasBarMap($('mapCanvas'),{center:INN,onSelect:data=>{
  if(data.type==='origin'){state.pickMode=false;setStart({name:'地圖指定起點',address:`${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`,lat:data.lat,lng:data.lng,type:'map'});toast('已設定地圖起點');return}
  focus(data.venue);
 },onStatus:msg=>{if(!state.loadMessage)$('publicInfo').textContent=msg}});
-map.setOrigin(INN); updateDistanceLabel(); updateMap(); renderResults();renderRoute();renderRandom();
+map.setOrigin(INN); updateDistanceLabel(); updateMap(); renderResults();renderRoute();renderRandom();renderAudit();
 
 document.addEventListener('click',e=>{
  const m=e.target.closest('[data-move]');if(m){const i=Number(m.dataset.i);if(m.dataset.move==='delete')remove(i);else move(i,m.dataset.move==='up'?-1:1);return}
@@ -205,6 +246,8 @@ $('radiusSelect').onchange=e=>{state.radius=e.target.value;renderResults()};
 $('sortSelect').onchange=e=>{state.sorting=e.target.value;renderResults()};
 $('nearBtn').onclick=showNear;$('randomBtn').onclick=randomPick;
 $('morePublic').onclick=()=>loadOsm(true);
+$('auditToggle').onclick=()=>{state.auditExpanded=!state.auditExpanded;renderAudit()};
+$('auditExport').onclick=exportAuditCsv;
 $('loadMore').onclick=()=>{state.show+=12;renderResults()};
 $('changeStart').onclick=()=>{$('startOptions').hidden=!$('startOptions').hidden};
 $('startShortcut').onclick=()=>{$('startOptions').hidden=false;showView('discover');$('startOptions').scrollIntoView({block:'nearest',behavior:'smooth'})};

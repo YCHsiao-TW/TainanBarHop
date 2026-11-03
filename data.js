@@ -1,5 +1,10 @@
-/** 本地精選清單：資訊供探索用途；營業與地址以店家最新公告為準。 */
-export const INN = Object.freeze({name:'好的我願意台南民宿',address:'臺南市中西區西門路二段372巷27號',lat:22.998143,lng:120.201141});
+/* 府城微醺地圖 v6.4：臺南市政府 114 年門牌坐標，地址完全比對 35/36；TWD97(TM2 EPSG:3826)→WGS84。座標為門牌參考位置，不代表酒吧入口或目前營業位置。 */
+export const INN = Object.freeze({
+  "name": "好的我願意台南民宿",
+  "address": "臺南市中西區西門路二段372巷27號",
+  "lat": 22.9982318,
+  "lng": 120.2011466
+});
 export const CURATED = [
   {
     "id": "curated-0",
@@ -8,8 +13,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "巷弄老屋・經典調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9968057,
+    "lng": 120.2008051,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-1",
@@ -18,8 +25,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "赤崁旁・調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9977368,
+    "lng": 120.2021435,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-2",
@@ -28,8 +37,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "中藥行主題・特色調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9985444,
+    "lng": 120.2022294,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-3",
@@ -38,8 +49,10 @@ export const CURATED = [
     "category": "bistro",
     "desc": "老宅調酒・餐酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9934713,
+    "lng": 120.2058274,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-4",
@@ -48,8 +61,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "新美街・創意調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9955693,
+    "lng": 120.2003524,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-5",
@@ -58,8 +73,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "隱藏巷弄・主題調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9959331,
+    "lng": 120.2015138,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-6",
@@ -68,8 +85,10 @@ export const CURATED = [
     "category": "beer",
     "desc": "在地精釀啤酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9976366,
+    "lng": 120.2013028,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-7",
@@ -78,8 +97,10 @@ export const CURATED = [
     "category": "beer",
     "desc": "啤酒選擇",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9985086,
+    "lng": 120.2022279,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-8",
@@ -88,8 +109,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "調酒愛好者選擇",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9988744,
+    "lng": 120.2100845,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-9",
@@ -98,8 +121,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "咖啡與調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 23.0002213,
+    "lng": 120.2062562,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-10",
@@ -108,8 +133,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "茶系創意調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9999387,
+    "lng": 120.2024659,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-11",
@@ -118,8 +145,10 @@ export const CURATED = [
     "category": "bistro",
     "desc": "特色杯器・創意調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9940311,
+    "lng": 120.1953679,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-12",
@@ -128,8 +157,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "國華街・晚間聚會",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9896311,
+    "lng": 120.1964914,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-13",
@@ -138,8 +169,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "國華街調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9888626,
+    "lng": 120.1964535,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-14",
@@ -148,8 +181,10 @@ export const CURATED = [
     "category": "bistro",
     "desc": "戶外氛圍・朋友聚會",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9938089,
+    "lng": 120.1959401,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-15",
@@ -158,8 +193,10 @@ export const CURATED = [
     "category": "bistro",
     "desc": "深夜餐酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.995819,
+    "lng": 120.2001337,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-16",
@@ -168,8 +205,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "巷弄調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9940262,
+    "lng": 120.21052,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-17",
@@ -178,8 +217,10 @@ export const CURATED = [
     "category": "beer",
     "desc": "精釀生啤",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 23.0010788,
+    "lng": 120.1953697,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-18",
@@ -188,8 +229,10 @@ export const CURATED = [
     "category": "beer",
     "desc": "神農街・在地精釀",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9978677,
+    "lng": 120.1960154,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-19",
@@ -198,8 +241,10 @@ export const CURATED = [
     "category": "beer",
     "desc": "精釀・舒適小酒館",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.990138,
+    "lng": 120.1963076,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-20",
@@ -218,8 +263,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "節氣靈感調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9960462,
+    "lng": 120.2070097,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-22",
@@ -228,8 +275,10 @@ export const CURATED = [
     "category": "bistro",
     "desc": "東區・深夜聚會",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9984922,
+    "lng": 120.2316246,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-23",
@@ -238,8 +287,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "東區特色酒吧",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.988642,
+    "lng": 120.2128288,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-24",
@@ -248,8 +299,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "東門路・調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9884694,
+    "lng": 120.2123036,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-25",
@@ -258,8 +311,10 @@ export const CURATED = [
     "category": "bistro",
     "desc": "餐酒・朋友聚會",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9863498,
+    "lng": 120.2277111,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-26",
@@ -268,8 +323,10 @@ export const CURATED = [
     "category": "bistro",
     "desc": "創意餐酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9935338,
+    "lng": 120.2260041,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-27",
@@ -278,8 +335,10 @@ export const CURATED = [
     "category": "beer",
     "desc": "休閒聚會",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9917524,
+    "lng": 120.227946,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-28",
@@ -288,8 +347,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "安平小酒館",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9986142,
+    "lng": 120.1662029,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-29",
@@ -298,8 +359,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "客製化調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 23.0071505,
+    "lng": 120.2068729,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-30",
@@ -308,8 +371,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "隱藏式酒吧",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9989167,
+    "lng": 120.2039615,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-31",
@@ -318,8 +383,10 @@ export const CURATED = [
     "category": "bistro",
     "desc": "特色調酒・餐酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9865842,
+    "lng": 120.1973356,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-32",
@@ -328,8 +395,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "深夜調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9910804,
+    "lng": 120.208604,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-33",
@@ -338,8 +407,10 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "調酒・宵夜",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 23.0022937,
+    "lng": 120.2052846,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-34",
@@ -348,8 +419,10 @@ export const CURATED = [
     "category": "bistro",
     "desc": "生蠔・餐酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 22.9985686,
+    "lng": 120.2066331,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   },
   {
     "id": "curated-35",
@@ -358,7 +431,9 @@ export const CURATED = [
     "category": "cocktail",
     "desc": "巷弄調酒",
     "source": "curated",
-    "lat": null,
-    "lng": null
+    "lat": 23.0006391,
+    "lng": 120.1992836,
+    "coordsSource": "tainan-city-doorplate-114",
+    "coordQuality": "官方門牌參考座標（非店家入口位置）"
   }
 ];

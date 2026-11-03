@@ -1,5 +1,0 @@
-1. 先解壓縮 ZIP。
-2. 上傳其中的 index.html 到 YCHsiao-TW/TainanBarHop 的 main 根目錄，覆蓋原有 index.html。
-3. GitHub Actions 顯示 Pages 部署成功後，開啟 https://ychsiao-tw.github.io/TainanBarHop/?v=osm3
-4. 網頁左上方應看見「OSM v3 · 單檔版」；若不是，表示仍看見舊版。
-5. 這版不需要再替換 app.js 或 styles.css。

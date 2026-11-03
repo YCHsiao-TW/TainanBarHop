@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#11151e" />
+<meta name="description" content="臺南酒吧探索地圖。從好的我願意台南民宿或任意起點出發，搜尋酒吧、抽第一杯、安排續攤、開啟步行導航。" />
+<title>府城微醺地圖 — Tainan Bar Hop</title>
+<link rel="preconnect" href="https://unpkg.com" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzX6rVYkPjTQU9Jr7o5j9NLC0=" crossorigin="" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="shell">
+ <section class="side">
+  <header class="brand"><div class="eyebrow"><span class="spark"></span> TAINAN AFTER DARK · 2026</div><h1>府城<em>微醺</em>地圖 🍸</h1><p>從赤崁樓旁開喝，從容走進臺南的夜。</p></header>
+  <nav class="tabs" role="tablist" aria-label="網站功能"><button class="tab active" data-tab="explore" role="tab" aria-selected="true">🍹 開喝</button><button class="tab" data-tab="browse" role="tab" aria-selected="false">📍 找酒吧</button><button class="tab" data-tab="route" role="tab" aria-selected="false">🗺️ 我的續攤 <span id="routeBadge">0</span></button></nav>
+  <div class="pane">
+    <section id="explorePane" class="tabpane">
+      <div class="card"><p class="minititle">01 / 從哪裡開喝？</p><div class="origin-label"><div class="origin-dot">⌂</div><div><strong id="originTitle">好的我願意台南民宿</strong><small id="originSub">中西區・西門路二段372巷27號</small></div></div>
+       <div class="actions"><button class="btn primary" id="homeBtn">⌂ 民宿起點</button><button class="btn" id="gpsBtn">◎ 目前位置</button><button class="btn" id="pickBtn">⌖ 地圖選點</button></div>
+       <div class="inputrow"><input id="originInput" class="field" placeholder="輸入其他地址／店名／經緯度…" aria-label="自訂起點"/><button id="originSearchBtn" class="btn">設定</button></div>
+       <div class="helper">支援地址、地名、經緯度，或有座標的 Google Maps 長網址。也可直接點地圖選起點。<a href="https://maps.app.goo.gl/xnHL74ruyT6Ermke9?g_st=ic" target="_blank" rel="noopener noreferrer" style="color:var(--mint)">查看原始民宿地圖</a></div>
+      </div>
+      <div class="hero"><div class="over">02 / THE FIRST DRINK</div><h2>今晚第一杯，交給命運。 ✨</h2><p>不知道喝哪間？從精選酒吧抽一間，立刻加入續攤或直接開導航。</p><button class="btn primary" id="randomBtn">🎲 幫我抽今晚第一間</button></div>
+      <div id="randomResult"></div>
+      <div class="small-stat"><div class="stat"><b id="curatedCount">—</b>精選酒吧</div><div class="stat"><b id="osmCount">⋯</b>地圖點位</div><div class="stat"><b id="routeCount">0</b>續攤站數</div></div>
+      <div class="section-head"><h3>從民宿出發，不錯的第一站</h3><span>人氣店家，不代表即時有位</span></div>
+      <div id="quickList" class="list"></div>
+      <p class="footer">⚠️ 十八歲以上才能飲酒。喝酒不開車，也不要騎車；安排步行或計程車移動。記得補水、吃點東西，覺得不舒服就休息。<br/>資料來源：精選店家公開資訊、<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>（©貢獻者）。營業時間、地址、低消與是否接受訂位請以店家當日公告為準。</p>
+    </section>
+    <section id="browsePane" class="tabpane" hidden>
+      <div class="section-head"><h3>臺南酒吧探索</h3><button class="btn ghost" id="refreshBtn">↻ 更新地圖資料</button></div>
+      <input id="searchInput" class="field" placeholder="搜尋店名、地址、區域或酒種…" aria-label="搜尋酒吧"/>
+      <div class="chips" id="filters"><button data-filter="all" class="chip selected">全部</button><button data-filter="cocktail" class="chip">🍸 調酒</button><button data-filter="beer" class="chip">🍺 精釀啤酒</button><button data-filter="bistro" class="chip">🍽 餐酒館</button><button data-filter="favorite" class="chip">♡ 收藏</button><button data-filter="near" class="chip">🚶 2km 內</button></div>
+      <div class="actions" style="margin-top:0;margin-bottom:12px"><label for="sortSelect" class="helper" style="margin:8px 0 0">排序</label><select id="sortSelect" class="field grow" style="padding:9px"><option value="recommended">精選優先</option><option value="nearest">距離最近（有座標）</option><option value="alpha">店名 A–Z</option></select><button class="btn" id="googleSearchBtn">Google 地圖找更多 ↗</button></div>
+      <div class="helper" id="dataStatus" style="margin-bottom:10px">讀取臺南酒吧地圖中…</div>
+      <div id="browseList" class="list"></div><button id="moreBtn" class="btn ghost hide" style="width:100%;margin-top:13px">顯示更多酒吧</button>
+      <div class="alert">「全部」指本網站整合的精選名單及 OpenStreetMap 已標記酒吧，<strong>不是官方的所有營業酒吧完整名冊</strong>。新開、漏標或停業店家可能未被收錄；按「Google 地圖找更多」可交叉查找。</div>
+    </section>
+    <section id="routePane" class="tabpane" hidden>
+      <div class="card"><p class="minititle">03 / BAR HOPPING ROUTE</p><div class="origin-label"><div class="origin-dot">↗</div><div><strong>今晚的續攤路線</strong><small>依下方順序前往。可按 ↑ ↓ 調整，或用有座標的店家輔助排序。</small></div></div><div class="actions"><button class="btn primary" id="allRouteBtn">🚶 Google Maps 步行全程</button><button class="btn" id="nextStopBtn">→ 導航下一站</button></div><div class="actions"><button class="btn" id="optimizeBtn">✨ 依位置排順序</button><button class="btn" id="shareBtn">↗ 分享路線</button><button class="btn ghost" id="clearRouteBtn">清空</button></div></div>
+      <div class="section-head"><h3>已加入的酒吧</h3><span id="routeHint">0 個地點</span></div><div id="routeList"></div>
+      <div class="alert">步行路線由 Google Maps 計算。手機版對中途站數可能有限制；如果只顯示部分站點，使用「導航下一站」。若距離太遠請改搭計程車，切勿酒駕。</div>
+      <p class="footer">本站不顯示即時營業狀態，也不估計喝酒後的移動速度。路線排序以直線距離做啟發式安排，不等於最短步行距離。</p>
+    </section>
+  </div>
+ </section>
+ <main class="maparea"><div id="map" aria-label="臺南酒吧互動地圖"></div><div class="maptop"><div class="map-badge"><b>●</b> 起點：<span id="mapOrigin">好的我願意台南民宿</span><div style="font-size:10px;color:#becad6" id="mapStatus">載入地圖與酒吧中…</div></div><div class="map-controls"><button class="round" id="mapHome">⌂ 回到起點</button><button class="round" id="mapFit">⊞ 看見所有點位</button></div></div><div class="bottom-note" id="mapHelp">📍 點擊酒吧圖釘，即可加入續攤或開步行導航</div></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="app.js" defer></script>
+</body>
+</html>

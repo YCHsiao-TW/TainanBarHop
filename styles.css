@@ -16,3 +16,8 @@
 }
 @media(max-width:360px){.version{display:none}.topbar h1{font-size:21px}.start-chip{max-width:92px}.maparea{height:295px}.hero-btn b{font-size:13px}.hero-btn span{font-size:10px}.venue-actions .btn{font-size:10px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+/* v6.1: obvious address lookup and navigation paths */
+.venue-detail{font-size:11px;color:#cae8d2;text-decoration:underline;display:inline-flex;align-items:center;padding:4px}
+.btn-geo{border-color:#709789;background:#264139;color:#dbffe5}
+@media(max-width:800px){.venue-actions .btn{min-height:39px}.venue-actions .btn-geo{flex:1}}

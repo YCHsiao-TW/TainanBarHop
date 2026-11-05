@@ -137,8 +137,17 @@ body.admin .audit-panel{display:block}
  .site-tools{justify-content:space-between;width:100%;gap:6px}
  .topbar h1{font-size:22px}.topbar p{font-size:10px}
  .help-link{padding:8px 10px;font-size:11px}.site-tools .start-chip{max-width:140px;padding:8px 9px}
- .bottomnav .navhelp{flex:1;min-width:0;border:0;background:transparent;color:#9fb0bf;font-size:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-decoration:none}
- .bottomnav .navhelp span{font-size:11px;line-height:1}
  body.map-only .maparea{height:calc(100dvh - 170px - env(safe-area-inset-bottom))}
 }
 @media(max-width:360px){.site-tools .start-chip{max-width:115px}.help-link{font-size:10px;padding:7px}}
+
+/* v7.1.5 — confirm landmark search results before changing the starting point. */
+.start-candidates{margin-top:10px;display:flex;flex-direction:column;gap:7px;max-height:300px;overflow:auto;overscroll-behavior:contain}
+.start-candidates[hidden]{display:none!important}
+.start-results-header{font-size:12px;font-weight:750;color:#c3d3d9;padding:5px 2px}
+.start-results-header span{font-size:10px;color:#a9bdc8;margin-left:6px}
+.start-result{display:flex;flex-direction:column;align-items:flex-start;gap:4px;border:1px solid #53716d;border-radius:10px;background:#202f3b;color:#edf8ef;padding:11px 13px;text-align:left;white-space:normal;min-height:64px;width:100%;cursor:pointer}
+.start-result:hover,.start-result:focus-visible{border-color:#bcecc8;background:#2a473d}
+.start-result strong{font-size:14px}.start-result small{font-size:11px;color:#bad0d4}.start-result em{font-size:10px;color:#b6e6c2;font-style:normal}
+.start-fallback{display:inline-flex;align-items:center;color:#bcecc8;font-size:12px;min-height:40px}
+@media(max-width:799px){.start-candidates{max-height:36dvh}.start-result{min-height:70px}}

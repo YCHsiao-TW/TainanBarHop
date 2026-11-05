@@ -1,11 +1,11 @@
-import {fetchPublicBars, geocodePlace} from './poi.js?v=7.1.4';
-import {installLanguage, getLanguage, tr} from './i18n.js?v=7.1.4';
-import {CanvasBarMap} from './map.js?v=7.1.4';
-import {INN,CURATED} from './data.js?v=7.1.4';
-import {sortRoute} from './route.js?v=7.1.4';
-import {loadDoorplateIndex,evaluateVenue,matchPublicToCurated,summarizeAudit,meters} from './audit.js?v=7.1.4';
+import {fetchPublicBars, geocodePlace, searchStartingPlaces} from './poi.js?v=7.1.5';
+import {installLanguage, getLanguage, tr} from './i18n.js?v=7.1.5';
+import {CanvasBarMap} from './map.js?v=7.1.5';
+import {INN,CURATED} from './data.js?v=7.1.5';
+import {sortRoute} from './route.js?v=7.1.5';
+import {loadDoorplateIndex,evaluateVenue,matchPublicToCurated,summarizeAudit,meters} from './audit.js?v=7.1.5';
 
-const VERSION='JS v7.1.4';
+const VERSION='JS v7.1.5';
 const STORE='tainan-bar-hop-js-v6';
 const GEO_STORE='tainan-bar-hop-verified-coordinates-v61';
 const POI_STORE='tainan-bar-hop-public-snapshot-v61';
@@ -60,7 +60,7 @@ function toast(txt){const el=$('toast');el.textContent=txt;el.classList.add('sho
 function routeHas(v){return state.route.some(p=>idOf(p)===idOf(v))}
 function distance(v){return kmBetween(state.origin,v)}
 function updateDistanceLabel(){const origin=state.origin;$('startTitle').textContent=origin.name;$('startAddr').textContent=origin.address||'地圖所選座標';$('mapOrigin').textContent=origin.name;$('startShortcut').textContent=origin.type==='inn'?'民宿起點':origin.name;}
-function setStart(p){state.origin={...p};updateDistanceLabel();map.setOrigin(p);if(hasCoords(p)){if(p.lat>22.75&&p.lat<23.3&&p.lng>120.0&&p.lng<120.55)map.setCenter(p)}renderResults()}
+function setStart(p){state.origin={...p};startLookupRevision++;clearStartSearch();$('startOptions').hidden=true;state.pickMode=false;map.setPickMode(false);updateDistanceLabel();map.setOrigin(p);if(hasCoords(p))map.setCenter(p);renderResults()}
 function updateMap(){const pts=state.venues.filter(hasCoords);map.setPoints(pts);updateRouteMap();$('pinCount').textContent=`${pts.length} 個酒吧圖釘 · ${CURATED.length} 精選`}
 function updateRouteMap(){map.setRoute(state.route.map((v,i)=>({...v,routeIndex:i+1})).filter(hasCoords));}
 function add(v){if(routeHas(v)){toast('這間已經在續攤清單了');return}state.route.push(copyVenue(v));save();renderRoute();renderResults();renderRandom();updateRouteMap();toast('已加入續攤：'+v.name)}
@@ -312,13 +312,54 @@ function persistVenueCoord(id,p,source){
  map.setCenter(p);map.setZoom(16);focus(findVenue(id)||v);
 }
 function startManualPin(v){state.pinTarget=v.id;map.setPickMode(true);toast(`請在地圖點選「${v.name}」的位置；定位完成前不會當成真實座標。`);if(window.innerWidth<800)window.scrollTo({top:0,behavior:'smooth'})}
-async function fromAddress(){const text=$('addressInput').value.trim();if(!text){toast('請輸入地址、地名或經緯度');return}const m=text.match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,3}(?:\.\d+)?)$/)||text.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);if(m){const lat=+m[1],lng=+m[2];if(Math.abs(lat)>90||Math.abs(lng)>180)return toast('座標超出範圍');setStart({name:'自訂起點',address:`${lat}, ${lng}`,lat,lng,type:'custom'});$('startOptions').hidden=true;return}if(/maps\.app\.goo\.gl/i.test(text)){toast('Google 短網址無法直接解析，請輸入地址或座標');return}const btn=$('setAddress');btn.disabled=true;btn.textContent='查詢中…';let p={name:text,address:text,type:'custom'};try{
-  const q=/(台南|臺南)/.test(text)?text:`${text} 臺南市`;
-  const candidate=await geocodePlace({name:q,address:q});
-  if(candidate&&validTainan(candidate)){p.lat=candidate.lat;p.lng=candidate.lng;toast('請確認地圖上的起點是否正確')}
-  else toast('地點地址已保留，Google Maps 導航可用；地圖座標尚待確認')
- }catch{toast('地址已保留供導航，地圖座標尚未確認')}finally{btn.disabled=false;btn.textContent='設為起點'}
- setStart(p);$('startOptions').hidden=true;}
+let startLookupRevision=0;
+let startingCandidates=[];
+function clearStartSearch(){
+ const input=$('addressInput'),list=$('addressCandidates');
+ if(input)input.value='';if(list){list.hidden=true;list.replaceChildren()}
+ startingCandidates=[];
+ if($('setAddress')){$('setAddress').disabled=false;$('setAddress').textContent='搜尋位置'}
+}
+function beginStartChange(){
+ startLookupRevision++;
+ clearStartSearch();
+ state.pickMode=false;state.pinTarget=null;map.setPickMode(false);
+ $('startOptions').hidden=false;
+}
+function useStartCandidate(candidate){
+ if(!candidate||!Number.isFinite(candidate.lat)||!Number.isFinite(candidate.lng)||Math.abs(candidate.lat)>90||Math.abs(candidate.lng)>180)return toast('座標超出範圍');
+ setStart({name:candidate.name,address:candidate.address||candidate.name,lat:candidate.lat,lng:candidate.lng,type:'place',coordsSource:candidate.source});
+ toast('已設定新起點');
+}
+function showStartCandidates(results,query){
+ const root=$('addressCandidates');root.hidden=false;
+ startingCandidates=results;
+ if(!results.length){
+  root.innerHTML=`<div class="start-results-header">${esc(tr('沒有找到符合的地標，請改用其他名稱或地圖點選'))}</div><a class="start-fallback" target="_blank" rel="noopener noreferrer" href="https://www.openstreetmap.org/search?${new URLSearchParams({query:query+' 臺南'})}">${esc(tr('在 OpenStreetMap 搜尋地標 ↗'))}</a>`;
+  return;
+ }
+ root.innerHTML=`<div class="start-results-header">${esc(tr('請選擇正確的地點'))} <span>${results.length}</span></div>`+results.map((v,i)=>`<button type="button" class="start-result" data-start-candidate="${i}"><strong data-no-translate>${esc(v.name)}</strong><small data-no-translate>${esc(v.address||'臺南市')}</small><em>${esc(tr(v.source==='觀光景點參考座標'?'觀光景點參考座標':'OSM 地點候選'))}</em></button>`).join('');
+}
+async function fromAddress(){
+ const text=$('addressInput').value.trim();
+ if(!text)return toast('請輸入地址、地名或經緯度');
+ const m=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/)||text.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+ if(m){const lat=+m[1],lng=+m[2];if(Math.abs(lat)>90||Math.abs(lng)>180)return toast('座標超出範圍');return useStartCandidate({name:'自訂起點',address:`${lat}, ${lng}`,lat,lng,source:'manual'})}
+ if(/maps\.app\.goo\.gl/i.test(text))return toast('Google 短網址無法直接解析，請輸入地址或座標');
+ const token=++startLookupRevision,btn=$('setAddress');btn.disabled=true;btn.textContent='尋找中…';
+ $('addressCandidates').hidden=true;$('addressCandidates').replaceChildren();
+ try{
+  const candidates=await searchStartingPlaces(text,{center:state.origin});
+  if(token!==startLookupRevision)return;
+  showStartCandidates(candidates,text);
+  if(candidates.length)toast('找到候選地點，請點選確認');
+  else toast('找不到位置，請改用其他名稱或地圖點選');
+ }catch(e){
+  if(token!==startLookupRevision)return;
+  showStartCandidates([],text);
+  toast('地標服務暫時無法連線，請改用地圖點選');
+ }finally{if(token===startLookupRevision){btn.disabled=false;btn.textContent='搜尋位置'}}
+}
 
 function build(){ $('app').innerHTML=`
 <header class="topbar"><div><div class="eyebrow">● TAINAN AFTER DARK <span class="version">${VERSION}</span></div><h1 data-brand-title data-no-translate>府城<span>微醺</span>地圖 <i>🍸</i></h1><p>選一間好酒吧，讓夜晚自然開始。</p></div><div class="site-tools"><a class="help-link" href="./help.html" aria-label="使用說明">ⓘ 使用說明</a><div class="lang-switch" role="group" aria-label="Language / 語言"><button type="button" data-lang-select="zh" aria-pressed="true">中文</button><button type="button" data-lang-select="en" aria-pressed="false">EN</button></div><button class="start-chip" id="startShortcut">民宿起點</button></div></header>
@@ -327,7 +368,7 @@ function build(){ $('app').innerHTML=`
 <section class="sheet" id="sheet"><button class="sheet-grip" id="sheetToggle" aria-label="展開或收合酒吧清單"><span></span></button><nav class="tabs"><button class="tab active" data-view="discover" aria-selected="true">🗺️ 探索酒吧</button><button class="tab" data-view="route" aria-selected="false">🥂 我的續攤 <b id="routeBadge">0</b></button></nav>
 <div class="sheet-content"><div id="tripOffer" class="trip-offer" hidden><strong>朋友分享了一份續攤路線 🥂</strong><p>共有 <span id="tripOfferCount">0</span> 間酒吧。載入後會替換目前這台裝置的續攤清單；起點不會跟著分享。</p><div class="actions"><button class="btn btn-brand" id="tripAccept">載入行程</button><button class="btn" id="tripDismiss">忽略</button></div></div><section id="discoverPanel">
 <div class="start-box"><div><small>今晚從哪裡出發？</small><strong id="startTitle">${esc(INN.name)}</strong><span id="startAddr">${esc(INN.address)}</span></div><button class="btn" id="changeStart">更換起點</button></div>
-<div class="start-options" id="startOptions" hidden><div class="actions"><button class="btn" id="startInn">⌂ 民宿</button><button class="btn" id="startGps">◎ 目前位置</button><button class="btn" id="startPick">⌖ 地圖點選</button></div><div class="input-group"><input id="addressInput" placeholder="輸入地址、地名或座標…" aria-label="新的出發地"><button class="btn btn-brand" id="setAddress">設為起點</button></div></div>
+<div class="start-options" id="startOptions" hidden><div class="actions"><button class="btn" id="startInn">⌂ 民宿</button><button class="btn" id="startGps">◎ 目前位置</button><button class="btn" id="startPick">⌖ 地圖點選</button></div><div class="input-group"><input id="addressInput" placeholder="搜尋地標、地址或輸入經緯度…" aria-label="搜尋地標或地址" autocomplete="off"><button class="btn btn-brand" id="setAddress">搜尋位置</button></div><div id="addressCandidates" class="start-candidates" role="region" aria-label="地點搜尋結果" aria-live="polite" hidden></div></div>
 <div class="hero-actions"><button class="hero-btn hero-near" id="nearBtn"><b>🚶 附近開喝</b><span>找附近有座標的酒吧</span></button><button class="hero-btn hero-random" id="randomBtn"><b>🎲 幫我選一間</b><span>按下就抽符合條件的店</span></button></div>
 <div class="random-settings"><div class="random-header"><strong>🎲 抽店偏好</strong><span>抽籤與列表篩選互不影響</span></div><div class="random-controls"><label>範圍 <select id="randomScope"><option value="near">起點附近</option><option value="all">全臺南清單</option></select></label><label>類型 <select id="randomCategory"><option value="all">不限種類</option><option value="cocktail">🍸 調酒</option><option value="beer">🍺 啤酒</option><option value="bistro">🍽️ 餐酒</option></select></label></div><div class="random-checks"><label><input id="randomExcludeVisited" type="checkbox" checked>排除已去過</label><label><input id="randomExcludeRoute" type="checkbox" checked>排除已加入續攤</label></div><small>附近使用上方選擇的公里數，距離是直線估算。</small></div>
 <div id="randomResult" hidden></div>
@@ -384,12 +425,12 @@ $('morePublic').onclick=()=>loadOsm(true);
 $('auditToggle').onclick=()=>{state.auditExpanded=!state.auditExpanded;renderAudit()};
 $('auditExport').onclick=exportAuditCsv;
 $('loadMore').onclick=()=>{state.show+=12;renderResults()};
-$('changeStart').onclick=()=>{$('startOptions').hidden=!$('startOptions').hidden};
-$('startShortcut').onclick=()=>{showView('discover');$('startOptions').hidden=false;$('startOptions').scrollIntoView({block:'nearest',behavior:'smooth'})};
+$('changeStart').onclick=()=>{if($('startOptions').hidden)beginStartChange();else{startLookupRevision++;clearStartSearch();$('startOptions').hidden=true}};
+$('startShortcut').onclick=()=>{showView('discover');beginStartChange();$('startOptions').scrollIntoView({block:'nearest',behavior:'smooth'})};
 $('startInn').onclick=()=>{setStart({...INN,type:'inn'});$('startOptions').hidden=true;toast('已切回民宿起點')};
 $('startGps').onclick=()=>{if(!navigator.geolocation)return toast('瀏覽器不支援定位');toast('正在取得目前位置…');navigator.geolocation.getCurrentPosition(p=>{setStart({name:'我的目前位置',lat:p.coords.latitude,lng:p.coords.longitude,address:`${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`,type:'gps'});$('startOptions').hidden=true;toast('已設定目前位置')},()=>toast('定位失敗，請檢查位置權限'),{enableHighAccuracy:false,timeout:11000,maximumAge:60000})};
-$('startPick').onclick=()=>{state.pinTarget=null;state.pickMode=true;map.setPickMode(true);toast('請在地圖上點一下設定起點');if(window.innerWidth<800)window.scrollTo({top:0,behavior:'smooth'})};
-$('setAddress').onclick=fromAddress;$('addressInput').onkeydown=e=>{if(e.key==='Enter')fromAddress()};
+$('startPick').onclick=()=>{startLookupRevision++;clearStartSearch();state.pinTarget=null;state.pickMode=true;map.setPickMode(true);$('startOptions').hidden=true;toast('請在地圖上點一下設定起點');if(window.innerWidth<800)window.scrollTo({top:0,behavior:'smooth'})};
+$('setAddress').onclick=fromAddress;$('addressInput').onkeydown=e=>{if(e.key==='Enter')fromAddress()};$('addressInput').oninput=()=>{startLookupRevision++;startingCandidates=[];$('addressCandidates').hidden=true;$('addressCandidates').replaceChildren();$('setAddress').disabled=false;$('setAddress').textContent='搜尋位置'};$('addressCandidates').onclick=e=>{const item=e.target.closest('[data-start-candidate]');if(item)useStartCandidate(startingCandidates[Number(item.dataset.startCandidate)])};
 $('homeMap').onclick=()=>{map.setCenter(hasCoords(state.origin)?state.origin:INN);map.setZoom(15)};
 $('zoomIn').onclick=()=>map.setZoom(map.zoom+1);$('zoomOut').onclick=()=>map.setZoom(map.zoom-1);
 $('optimizeRoute').onclick=routeOptimize;$('shareRoute').onclick=shareTrip;

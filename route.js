@@ -28,7 +28,7 @@ export function sortRoute(start, stops) {
   const located = stops.filter(hasXY);
   const unlocated = stops.filter(s => !hasXY(s));
   if (!hasXY(start) || located.length === 0) {
-    return { route: located, unlocated, totalKm: pathLength(start, located) };
+    return {route: located, unlocated, totalKm: hasXY(start) ? pathLength(start,located) : null};
   }
 
   // 1) 最近鄰

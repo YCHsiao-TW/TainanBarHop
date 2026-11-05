@@ -21,7 +21,7 @@ const pendingRequests=new Map();
 function worker(){
  if(sharedWorker)return sharedWorker;
  if(typeof Worker==='undefined')throw Error('此瀏覽器不支援背景比對，但原有精選門牌仍可使用');
- const w=new Worker(new URL('./audit-worker.js?v=6.5.0',import.meta.url),{type:'module'});
+ const w=new Worker(new URL('./audit-worker.js?v=7.1.3',import.meta.url),{type:'module'});
  w.onmessage=ev=>{const x=ev.data||{},p=pendingRequests.get(x.id);if(!p)return;clearTimeout(p.t);pendingRequests.delete(x.id);if(x.error)p.reject(new Error(x.error));else p.resolve(x.matches||{})};
  w.onerror=e=>{for(const p of pendingRequests.values()){clearTimeout(p.t);p.reject(new Error('門牌比對背景程式無法啟動'))}pendingRequests.clear();sharedWorker=null;w.terminate()};
  sharedWorker=w;return w;

@@ -150,7 +150,11 @@ export class CanvasBarMap {
       const p=this.screenPosition(a),q=this.screenPosition(b);
       ctx.save();ctx.strokeStyle='#276b57';ctx.lineWidth=4;ctx.setLineDash([6,6]);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();ctx.restore();
     }
+    // A selected stop is drawn once as a numbered route marker. Drawing the
+    // original green POI under it produces overlapping circles on small screens.
+    const routeIds=new Set(this.route.map(p=>p.id).filter(Boolean));
     for(const p of this.points){
+      if(p.id&&routeIds.has(p.id))continue;
       const {x,y}=this.screenPosition(p);
       if(x < -30||y < -30||x>this.width+30||y>this.height+30)continue;
       const selected=p.id===this.highlight;

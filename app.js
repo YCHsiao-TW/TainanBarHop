@@ -1,10 +1,11 @@
-import {fetchPublicBars, geocodePlace} from './poi.js?v=7.1.3';
-import {CanvasBarMap} from './map.js?v=7.1.3';
-import {INN,CURATED} from './data.js?v=7.1.3';
-import {sortRoute} from './route.js?v=7.1.3';
-import {loadDoorplateIndex,evaluateVenue,matchPublicToCurated,summarizeAudit,meters} from './audit.js?v=7.1.3';
+import {fetchPublicBars, geocodePlace} from './poi.js?v=7.1.4';
+import {installLanguage, getLanguage, tr} from './i18n.js?v=7.1.4';
+import {CanvasBarMap} from './map.js?v=7.1.4';
+import {INN,CURATED} from './data.js?v=7.1.4';
+import {sortRoute} from './route.js?v=7.1.4';
+import {loadDoorplateIndex,evaluateVenue,matchPublicToCurated,summarizeAudit,meters} from './audit.js?v=7.1.4';
 
-const VERSION='JS v7.1.3';
+const VERSION='JS v7.1.4';
 const STORE='tainan-bar-hop-js-v6';
 const GEO_STORE='tainan-bar-hop-verified-coordinates-v61';
 const POI_STORE='tainan-bar-hop-public-snapshot-v61';
@@ -74,16 +75,16 @@ function routeOptimize(){
 function distanceFrom(a,b){return kmBetween(a,b)}
 function toggleFavorite(v){const key=idOf(v);state.fav.has(key)?state.fav.delete(key):state.fav.add(key);save();renderResults();renderRandom();renderRoute()}
 function findVenue(id){return state.venues.find(x=>x.id===id)||state.route.find(x=>x.id===id)}
-function focus(v){if(!hasCoords(v)){toast('這間店尚未核對座標，可點「Google 地圖查店家」');return}map.setCenter(v);map.setZoom(16);map.setHighlight(v.id);state.selected=v;$('mapVenue').hidden=false;$('mapVenue').innerHTML=`<strong>${esc(v.name)}</strong><p>${esc(v.address||'依 OSM 地圖點位')}</p><div class="actions"><button class="btn btn-brand" id="pinAdd">＋ 加入續攤</button><a class="btn" target="_blank" rel="noopener noreferrer" href="${esc(navUrl([v]))}">步行導航 ↗</a><button class="btn" id="pinInfo">店家資訊</button><button class="btn btn-ghost" id="pinClose">×</button></div>`;$('pinAdd').onclick=()=>add(v);$('pinInfo').onclick=()=>showDetail(v);$('pinClose').onclick=()=>{$('mapVenue').hidden=true;map.setHighlight(null)}}
+function focus(v){if(!hasCoords(v)){toast('這間店尚未核對座標，可點「Google 地圖查店家」');return}map.setCenter(v);map.setZoom(16);map.setHighlight(v.id);state.selected=v;$('mapVenue').hidden=false;$('mapVenue').innerHTML=`<strong data-no-translate>${esc(v.name)}</strong><p data-no-translate>${esc(v.address||'依 OSM 地圖點位')}</p><div class="actions"><button class="btn btn-brand" id="pinAdd">＋ 加入續攤</button><a class="btn" target="_blank" rel="noopener noreferrer" href="${esc(navUrl([v]))}">步行導航 ↗</a><button class="btn" id="pinInfo">店家資訊</button><button class="btn btn-ghost" id="pinClose">×</button></div>`;$('pinAdd').onclick=()=>add(v);$('pinInfo').onclick=()=>showDetail(v);$('pinClose').onclick=()=>{$('mapVenue').hidden=true;map.setHighlight(null)}}
 
 // Details are based on the site's own curated descriptions/OSM metadata; no unverified ratings or opening hours.
 function showDetail(v){
  const modal=$('venueModal');if(!modal)return;
  const d=distance(v),q=v.coordAudit?.quality||'座標尚未確認';
  $('detailContent').innerHTML=`<div class="detail-kicker">BAR DETAILS · 店家資訊</div>
- <h2 id="detailTitle">${esc(v.name)}</h2>
+ <h2 id="detailTitle" data-no-translate>${esc(v.name)}</h2>
  <div class="detail-tags"><span>${esc(label[v.category]||'🍸 酒吧')}</span><span>${v.source==='curated'?'本站精選':'OSM 公開點位'}</span></div>
- <p class="detail-address">📍 ${esc(v.address||'臺南市・地址待確認')}</p>
+ <p class="detail-address" data-no-translate>📍 ${esc(v.address||'臺南市・地址待確認')}</p>
  <div class="detail-grid"><div><small>離起點直線距離</small><b>${kmText(d)}</b></div><div><small>定位資料</small><b>${esc(q)}</b></div></div>
  <section class="detail-blurb"><b>特色與介紹</b><p>${esc(v.desc||'暫無已核對的特色描述，可以開啟 Google Maps 查看店家最新資訊。')}</p></section>
  <p class="detail-warning">營業時間、低消、價格、訂位及是否仍營業尚未即時驗證，出發前請向店家確認。座標是參考位置，不一定是店門口。</p>
@@ -118,7 +119,7 @@ function readIncomingTrip(){
 function dismissIncoming(){state.incomingTrip=null;$('tripOffer').hidden=true;try{history.replaceState(null,'',location.href.split('#')[0])}catch{}}
 function loadIncoming(){
  const items=state.incomingTrip;if(!items?.length)return;
- if(state.route.length&&!window.confirm('載入朋友分享的續攤路線，會取代目前這台裝置的續攤清單。確定嗎？'))return;
+ if(state.route.length&&!window.confirm(getLanguage()==='en'?'Loading this shared itinerary will replace your saved route on this device. Continue?':'載入朋友分享的續攤路線，會取代目前這台裝置的續攤清單。確定嗎？'))return;
  state.route=items.map(v=>{const local=state.venues.find(x=>x.id===v.id);return local?{...v,lat:local.lat,lng:local.lng,address:local.address,coordAudit:local.coordAudit}:v});
  save();dismissIncoming();renderRoute();renderResults();updateRouteMap();showView('route');toast('已載入朋友分享的 '+items.length+' 間酒吧');
 }
@@ -166,8 +167,8 @@ function matches(){const q=normal(state.search);let all=state.venues.filter(v=>(
 }
 function venueCard(v){const d=distance(v),isPinned=hasCoords(v),fav=state.fav.has(idOf(v)),added=routeHas(v);
   return `<article class="venue" data-venue="${esc(v.id)}">
-   <div class="venue-main"><div class="ven-head"><h3>${esc(v.name)}</h3><span class="source">${v.source==='curated'?'精選':'OSM'}</span></div>
-     <p class="ven-address">📍 ${esc(v.address||'臺南市・位置依 OSM 標記')}</p>
+   <div class="venue-main"><div class="ven-head"><h3 data-no-translate>${esc(v.name)}</h3><span class="source">${v.source==='curated'?'精選':'OSM'}</span></div>
+     <p class="ven-address" data-no-translate>📍 ${esc(v.address||'臺南市・位置依 OSM 標記')}</p>
      <div class="tags"><span>${esc(label[v.category]||'🍸 酒吧')}</span><span>${isPinned?`約 ${kmText(d)}・直線距離`:'尚未確認座標'}</span></div>
    </div>
    <div class="venue-actions"><div class="venue-primary"><button class="btn btn-brand" data-action="add" data-id="${esc(v.id)}">${added?'✓ 已加入':'＋ 續攤'}</button><a class="btn" href="${esc(navUrl([v]))}" target="_blank" rel="noopener noreferrer">🚶 導航 ↗</a></div><div class="venue-secondary">${isPinned?`<button class="btn" data-action="focus" data-id="${esc(v.id)}">📍 看圖釘</button>`:`<button class="btn btn-geo" data-action="locate" data-id="${esc(v.id)}">📍 定位這間</button>`}<button class="btn btn-ghost" data-action="detail" data-id="${esc(v.id)}">店家資訊</button><button class="btn btn-icon ${fav?'favorited':''}" aria-label="${fav?'取消收藏':'收藏'}" data-action="fav" data-id="${esc(v.id)}">${fav?'♥':'♡'}</button></div></div></article>`
@@ -193,10 +194,10 @@ function renderResults(){const found=matches();$('resultCount').textContent=`${f
   $('routeCount').textContent=state.route.length;
 }
 function renderRoute(){const r=state.route;$('routeBadge').textContent=r.length;$('navRouteBadge').textContent=r.length;$('routeCount').textContent=r.length;
-  $('routeList').innerHTML=r.length?r.map((v,i)=>`<div class="stop"><span class="stop-index">${i+1}</span><div class="stop-main"><b>${esc(v.name)}</b><small>${esc(v.address||'臺南市')} ${hasCoords(v)?'・約 '+kmText(distance(v)):''}</small><div class="stop-actions"><a href="${esc(navUrl([v],{fromCurrent:true}))}" target="_blank" rel="noopener noreferrer">從目前位置導航 ↗</a><button data-action="visited" data-id="${esc(v.id)}">${state.visited.has(idOf(v))?'✓ 已到過':'標記已到'}</button></div></div><div class="stop-controls"><button data-move="up" data-i="${i}" aria-label="上移" ${i===0?'disabled':''}>↑</button><button data-move="down" data-i="${i}" aria-label="下移" ${i===r.length-1?'disabled':''}>↓</button><button data-move="delete" data-i="${i}" aria-label="移除">×</button></div></div>`).join(''):'<div class="empty"><strong>還沒選今晚要去的店家</strong><p>在探索頁按「＋ 續攤」，就能建立路線。</p></div>';
+  $('routeList').innerHTML=r.length?r.map((v,i)=>`<div class="stop"><span class="stop-index">${i+1}</span><div class="stop-main"><b data-no-translate>${esc(v.name)}</b><small data-no-translate>${esc(v.address||'臺南市')} ${hasCoords(v)?'・約 '+kmText(distance(v)):''}</small><div class="stop-actions"><a href="${esc(navUrl([v],{fromCurrent:true}))}" target="_blank" rel="noopener noreferrer">從目前位置導航 ↗</a><button data-action="visited" data-id="${esc(v.id)}">${state.visited.has(idOf(v))?'✓ 已到過':'標記已到'}</button></div></div><div class="stop-controls"><button data-move="up" data-i="${i}" aria-label="上移" ${i===0?'disabled':''}>↑</button><button data-move="down" data-i="${i}" aria-label="下移" ${i===r.length-1?'disabled':''}>↓</button><button data-move="delete" data-i="${i}" aria-label="移除">×</button></div></div>`).join(''):'<div class="empty"><strong>還沒選今晚要去的店家</strong><p>在探索頁按「＋ 續攤」，就能建立路線。</p></div>';
   const first=r.slice(0,4),next=r.find(v=>!state.visited.has(idOf(v)))||r[0];$('routeGo').href=r.length?navUrl(first):'#';$('routeGo').classList.toggle('disabled',!r.length);$('routeNext').href=next?navUrl([next],{fromCurrent:true}):'#';$('routeNext').classList.toggle('disabled',!next);$('routeCaveat').textContent=r.length>4?'手機 Google Maps 單次只帶入前四站，其餘可逐站導航。':'地圖上的連線是直線示意，不是實際步行路徑。導航請以 Google Maps 為準。';
   $('stickyRoute').hidden=!r.length||state.view==='route'; $('stickyCount').textContent=`${r.length} 間酒吧`;$('startNight').disabled=!r.length;}
-function renderRandom(){const root=$('randomResult');if(!state.random){root.hidden=true;return}const v=state.random;root.hidden=false;root.innerHTML=`<div class="lucky-result"><span class="small">✨ 今晚喝這間</span><h3>${esc(v.name)}</h3><p>${esc(v.address||'臺南市')}</p><div class="actions"><button class="btn btn-brand" id="randomAdd">＋ 加入續攤</button><a href="${esc(navUrl([v]))}" class="btn" target="_blank" rel="noopener noreferrer">步行導航 ↗</a><button class="btn" id="randomAgain">再抽一次</button></div></div>`;$('randomAdd').onclick=()=>add(v);$('randomAgain').onclick=randomPick;}
+function renderRandom(){const root=$('randomResult');if(!state.random){root.hidden=true;return}const v=state.random;root.hidden=false;root.innerHTML=`<div class="lucky-result"><span class="small">✨ 今晚喝這間</span><h3 data-no-translate>${esc(v.name)}</h3><p data-no-translate>${esc(v.address||'臺南市')}</p><div class="actions"><button class="btn btn-brand" id="randomAdd">＋ 加入續攤</button><a href="${esc(navUrl([v]))}" class="btn" target="_blank" rel="noopener noreferrer">步行導航 ↗</a><button class="btn" id="randomAgain">再抽一次</button></div></div>`;$('randomAdd').onclick=()=>add(v);$('randomAgain').onclick=randomPick;}
 function randomPick(){
  const radius=Number(state.radius)||2;
  const eligible=state.venues.filter(v=>{
@@ -294,11 +295,11 @@ async function locateVenue(v){
   if(!p)throw new Error('沒有可靠座標');
   // Require human confirmation for a geocoding candidate; never silently save approximate coordinates.
   map.setCenter(p);map.setZoom(17);
-  if(!window.confirm(`查到「${v.name}」的候選座標：\n${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}\n\n請核對地圖位置，這是正確的店家地址嗎？`))throw new Error('已取消確認');
+  if(!window.confirm(getLanguage()==='en'?`Possible location for ${v.name}:\n${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}\n\nPlease verify this is the right bar address.`:`查到「${v.name}」的候選座標：\n${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}\n\n請核對地圖位置，這是正確的店家地址嗎？`))throw new Error('已取消確認');
   persistVenueCoord(v.id,p,'geocoded');toast(`已確認 ${v.name} 的位置`);
  }catch(e){
   if(String(e.message||e)!=='已取消確認'){
-   if(window.confirm('外部地址定位不成功。要改用「點地圖手動標記這間酒吧」嗎？'))startManualPin(v)
+   if(window.confirm(getLanguage()==='en'?'Address lookup failed. Would you like to mark this bar on the map manually?':'外部地址定位不成功。要改用「點地圖手動標記這間酒吧」嗎？'))startManualPin(v)
    else toast('可使用 Google Maps 查店家，或再點「定位這間」')
   }
  }finally{state.geoBusy=false}
@@ -320,7 +321,7 @@ async function fromAddress(){const text=$('addressInput').value.trim();if(!text)
  setStart(p);$('startOptions').hidden=true;}
 
 function build(){ $('app').innerHTML=`
-<header class="topbar"><div><div class="eyebrow">● TAINAN AFTER DARK <span class="version">${VERSION}</span></div><h1>府城<span>微醺</span>地圖 <i>🍸</i></h1><p>選一間好酒吧，讓夜晚自然開始。</p></div><button class="start-chip" id="startShortcut">民宿起點</button></header>
+<header class="topbar"><div><div class="eyebrow">● TAINAN AFTER DARK <span class="version">${VERSION}</span></div><h1 data-brand-title data-no-translate>府城<span>微醺</span>地圖 <i>🍸</i></h1><p>選一間好酒吧，讓夜晚自然開始。</p></div><div class="site-tools"><a class="help-link" href="./help.html" aria-label="使用說明">ⓘ 使用說明</a><div class="lang-switch" role="group" aria-label="Language / 語言"><button type="button" data-lang-select="zh" aria-pressed="true">中文</button><button type="button" data-lang-select="en" aria-pressed="false">EN</button></div><button class="start-chip" id="startShortcut">民宿起點</button></div></header>
 <div class="layout">
 <main class="maparea" id="mapArea"><canvas id="mapCanvas" aria-label="臺南互動地圖，拖曳瀏覽、點圖釘選酒吧" ></canvas><div class="map-status"><strong>📍 <span id="mapOrigin">${esc(INN.name)}</span></strong><small id="pinCount">0 個已定位點位</small></div><div class="map-controls"><button id="homeMap" aria-label="返回起點">⌂</button><button id="zoomIn" aria-label="放大">＋</button><button id="zoomOut" aria-label="縮小">－</button></div><div class="map-venue" id="mapVenue" hidden></div><div class="attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></div></main>
 <section class="sheet" id="sheet"><button class="sheet-grip" id="sheetToggle" aria-label="展開或收合酒吧清單"><span></span></button><nav class="tabs"><button class="tab active" data-view="discover" aria-selected="true">🗺️ 探索酒吧</button><button class="tab" data-view="route" aria-selected="false">🥂 我的續攤 <b id="routeBadge">0</b></button></nav>
@@ -345,7 +346,7 @@ function build(){ $('app').innerHTML=`
 <div class="night-screen" id="nightScreen" hidden role="dialog" aria-modal="true" aria-label="今晚開喝模式"><div class="night-wrap"><header class="night-head"><div><small>TONIGHT'S BAR HOP</small><h2>今晚開喝 🍸</h2></div><button id="nightExit" class="night-close">退出模式 ×</button></header><div class="night-count" id="nightCounter">第 1 站</div><div class="night-progress" id="nightProgress"></div><div class="night-card"><span>目前目的地</span><h3 id="nightPlace"></h3><p id="nightLocation"></p><a id="nightNav" class="night-action" target="_blank" rel="noopener noreferrer">🚶 Google Maps 步行導航 ↗</a></div><p class="night-next" id="nightNextLabel"></p><div class="night-buttons"><button class="btn btn-brand" id="nightDone">✓ 完成這站・下一站</button><button class="btn" id="nightSkip">跳過這站</button><button class="btn" id="nightPrev">← 上一站</button></div><div class="night-home"><a id="nightReturn" target="_blank" rel="noopener noreferrer">⌂ 回到民宿步行導航 ↗</a><p>注意交通安全，請勿酒駕；喝酒後也可選擇搭車回程。若不舒服就停止飲酒並休息。</p></div></div></div>`}
 build();
 const map=new CanvasBarMap($('mapCanvas'),{center:INN,onSelect:data=>{
- if(data.type==='origin'&&state.pinTarget){const id=state.pinTarget;state.pinTarget=null;const v=findVenue(id);if(v&&window.confirm(`你要把此地圖位置指定為「${v.name}」嗎？\n（請先確認店家所在位置）`)){persistVenueCoord(id,data,'manual');toast('已儲存酒吧座標')}return}
+ if(data.type==='origin'&&state.pinTarget){const id=state.pinTarget;state.pinTarget=null;const v=findVenue(id);if(v&&window.confirm(getLanguage()==='en'?`Assign this map position to ${v.name}?\n(Please verify the actual location first.)`:`你要把此地圖位置指定為「${v.name}」嗎？\n（請先確認店家所在位置）`)){persistVenueCoord(id,data,'manual');toast('已儲存酒吧座標')}return}
  if(data.type==='origin'){state.pickMode=false;setStart({name:'地圖指定起點',address:`${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`,lat:data.lat,lng:data.lng,type:'map'});toast('已設定地圖起點');return}
  focus(data.venue);
 },onStatus:msg=>{if(!state.loadMessage)$('publicInfo').textContent=msg}});
@@ -392,7 +393,7 @@ $('setAddress').onclick=fromAddress;$('addressInput').onkeydown=e=>{if(e.key==='
 $('homeMap').onclick=()=>{map.setCenter(hasCoords(state.origin)?state.origin:INN);map.setZoom(15)};
 $('zoomIn').onclick=()=>map.setZoom(map.zoom+1);$('zoomOut').onclick=()=>map.setZoom(map.zoom-1);
 $('optimizeRoute').onclick=routeOptimize;$('shareRoute').onclick=shareTrip;
-$('clearRoute').onclick=()=>{if(state.route.length&&confirm('要清空今晚的續攤路線嗎？')){state.route=[];save();renderRoute();renderResults();updateRouteMap()}};
+$('clearRoute').onclick=()=>{if(state.route.length&&confirm(getLanguage()==='en'?'Clear tonight’s entire route?':'要清空今晚的續攤路線嗎？')){state.route=[];save();renderRoute();renderResults();updateRouteMap()}};
 $('goRoute').onclick=()=>{showView('route');if(window.innerWidth<800)$('sheet').scrollIntoView({behavior:'smooth',block:'start'})};
 $('sheetToggle').onclick=()=>{const collapsed=$('sheet').classList.toggle('collapsed');state.sheet=collapsed?'peek':'full'};
 // Cached public coordinates render immediately. If no snapshot exists, load real OSM-based source once.
@@ -415,3 +416,6 @@ new MutationObserver(()=>{
 function syncAdminHash(){document.body.classList.toggle('admin',location.hash==='#admin')}
 window.addEventListener('hashchange',syncAdminHash);
 syncAdminHash();
+
+// Translation observes interface updates, including late OSM and audit results.
+installLanguage();

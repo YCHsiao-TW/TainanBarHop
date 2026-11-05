@@ -125,3 +125,20 @@ body.admin .audit-panel{display:block}
   .bottomnav button{min-width:0}
   .bottomnav button:focus-visible{outline-offset:-3px}
 }
+
+/* v7.1.4: bilingual controls and help shortcut; leaves canvas map untouched. */
+.site-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+.help-link{display:inline-flex;align-items:center;justify-content:center;border-radius:11px;border:1px solid #425e5b;padding:9px 10px;color:#d2eddc;background:#213831;font-size:11px;font-weight:800;white-space:nowrap}
+.lang-switch{display:inline-flex;border:1px solid #4e6961;padding:3px;border-radius:12px;background:#1c2a32;gap:3px;flex:none}
+.lang-switch button{border:0;border-radius:9px;padding:7px 9px;background:transparent;color:#b4c6c9;font-size:12px;font-weight:750}
+.lang-switch button.active{background:#bdecc8;color:#173429}
+@media(max-width:799px){
+ .topbar{height:auto;min-height:92px;display:grid;grid-template-columns:1fr;gap:8px;padding:11px 15px}
+ .site-tools{justify-content:space-between;width:100%;gap:6px}
+ .topbar h1{font-size:22px}.topbar p{font-size:10px}
+ .help-link{padding:8px 10px;font-size:11px}.site-tools .start-chip{max-width:140px;padding:8px 9px}
+ .bottomnav .navhelp{flex:1;min-width:0;border:0;background:transparent;color:#9fb0bf;font-size:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-decoration:none}
+ .bottomnav .navhelp span{font-size:11px;line-height:1}
+ body.map-only .maparea{height:calc(100dvh - 170px - env(safe-area-inset-bottom))}
+}
+@media(max-width:360px){.site-tools .start-chip{max-width:115px}.help-link{font-size:10px;padding:7px}}

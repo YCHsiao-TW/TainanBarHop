@@ -1,12 +1,12 @@
 /** Load and parse the ~3.5MB compressed city reference in a background thread.
  * The main UI receives only matched doorplates, never the 470k-record index.
  */
-import {officialReference} from './audit.js?v=7.1.3';
+import {officialReference} from './audit.js?v=7.1.4';
 let promise;
 async function getIndex(){
  if(!promise)promise=(async()=>{
   if(typeof DecompressionStream==='undefined')throw Error('此裝置不支援壓縮資料解碼');
-  const response=await fetch('./doorplate-index.json.gz?v=7.1.3',{cache:'force-cache'});
+  const response=await fetch('./doorplate-index.json.gz?v=7.1.4',{cache:'force-cache'});
   if(!response.ok)throw Error('官方門牌索引載入失敗：HTTP '+response.status);
   const data=await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).json();
   if(!data.entries||!data.version)throw Error('官方門牌資料格式不正確');

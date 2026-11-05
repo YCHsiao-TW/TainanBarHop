@@ -6,10 +6,16 @@
   <meta name="theme-color" content="#131d27">
   <meta name="description" content="府城微醺地圖：從臺南民宿或任何起點出發，搜尋附近酒吧、隨機抽店、規劃續攤與步行導航。">
   <title>府城微醺地圖｜Tainan Bar Hop</title>
-  <link rel="stylesheet" href="./styles.css?v=6.5.0">
+  <link rel="stylesheet" href="./styles.css?v=7.1.0">
 </head>
 <body>
   <div id="app"><p style="font:16px system-ui;padding:24px">🍸 載入府城微醺地圖中…</p></div>
-  <script type="module" src="./app.js?v=6.5.0"></script>
+  <script type="module" src="./app.js?v=7.1.0"></script>
+  <nav class="bottomnav" aria-label="主要導覽">
+    <button data-tab="map">🗺️<span>地圖</span></button>
+    <button data-tab="discover" class="active" aria-current="page">🔍<span>探索</span></button>
+    <button data-tab="route">🥂<span>續攤 <b id="navRouteBadge">0</b></span></button>
+    <button data-tab="night">🌙<span>今晚</span></button>
+  </nav>
 </body>
 </html>

@@ -4,7 +4,7 @@ import {INN,CURATED} from './data.js?v=6.5.0';
 import {sortRoute} from './route.js?v=6.6.0';
 import {loadDoorplateIndex,evaluateVenue,matchPublicToCurated,summarizeAudit,meters} from './audit.js?v=6.5.0';
 
-const VERSION='JS v6.5';
+const VERSION='JS v7.1';
 const STORE='tainan-bar-hop-js-v6';
 const GEO_STORE='tainan-bar-hop-verified-coordinates-v61';
 const POI_STORE='tainan-bar-hop-public-snapshot-v61';

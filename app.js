@@ -4,7 +4,7 @@ import {INN,CURATED} from './data.js?v=6.5.0';
 import {sortRoute} from './route.js?v=6.6.0';
 import {loadDoorplateIndex,evaluateVenue,matchPublicToCurated,summarizeAudit,meters} from './audit.js?v=6.5.0';
 
-const VERSION='JS v7.1';
+const VERSION='JS v7.1.2';
 const STORE='tainan-bar-hop-js-v6';
 const GEO_STORE='tainan-bar-hop-verified-coordinates-v61';
 const POI_STORE='tainan-bar-hop-public-snapshot-v61';
@@ -382,9 +382,9 @@ function setNavActive(tab){navBtns.forEach(b=>{const on=b.dataset.tab===tab;b.cl
 function showSheetFull(){if(window.innerWidth<800){$('sheet').classList.remove('collapsed');state.sheet='full';$('sheet').scrollIntoView({behavior:'smooth',block:'start'})}}
 navBtns.forEach(btn=>btn.addEventListener('click',()=>{
   const tab=btn.dataset.tab;
-  if(tab==='map'){setNavActive('map');if(window.innerWidth<800){$('sheet').classList.add('collapsed');state.sheet='peek';window.scrollTo({top:0,behavior:'smooth'})}return}
-  if(tab==='night'){if(!state.route.length){toast('請先加入至少一間酒吧到續攤');return}setNavActive('night');openNight();return}
-  setNavActive(tab);showView(tab==='route'?'route':'discover');showSheetFull();
+  if(tab==='map'){setNavActive('map');document.body.classList.add('map-only');window.scrollTo({top:0,behavior:'smooth'});return}
+  if(tab==='night'){if(!state.route.length){toast('請先加入至少一間酒吧到續攤');return}document.body.classList.remove('map-only');setNavActive('night');openNight();return}
+  document.body.classList.remove('map-only');setNavActive(tab);showView(tab==='route'?'route':'discover');showSheetFull();
 }));
 new MutationObserver(()=>{
   if(!document.body.classList.contains('night-open')&&navBtns.some(b=>b.dataset.tab==='night'&&b.classList.contains('active')))setNavActive(state.view==='route'?'route':'discover');
